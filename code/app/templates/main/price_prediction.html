@@ -1,0 +1,514 @@
+{% extends "base.html" %}
+
+{% block title %}价格预测 - 租房数据分析{% endblock %}
+
+{% block page_title %}价格预测{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<!-- 添加 SweetAlert2 样式 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- 预测参数卡片 -->
+        <div class="col-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-cog"></i>预测参数设置
+                        </h5>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="retrainModel">
+                            <i class="fas fa-sync-alt me-1"></i>重新训练模型
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form id="predictionForm" class="row g-3">
+                        <div class="col-md-6">
+                            <label for="citySelect" class="form-label">选择城市</label>
+                            <select class="form-select" id="citySelect" required>
+                                <option value="">请选择城市...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="districtSelect" class="form-label">选择区域</label>
+                            <select class="form-select" id="districtSelect" required>
+                                <option value="">请先选择城市...</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-chart-line me-1"></i>开始预测
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 预测图表卡片 -->
+        <div class="col-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-chart-line"></i>价格预测趋势
+                        </h5>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="showHistorical">
+                                <i class="fas fa-history me-1"></i>显示历史数据
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="showPrediction">
+                                <i class="fas fa-chart-line me-1"></i>显示预测数据
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshData">
+                                <i class="fas fa-sync-alt me-1"></i>刷新数据
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="priceChart" style="height: 500px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 预测结果卡片 -->
+        <div class="col-12 col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-white py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>预测结果
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush" id="predictionResults">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>模型类型</span>
+                            <span class="badge bg-primary rounded-pill" id="modelType">-</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>特征数量</span>
+                            <span class="badge bg-info rounded-pill" id="featureCount">-</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>模型得分</span>
+                            <span class="badge bg-success rounded-pill" id="modelScore">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 特征重要性卡片 -->
+        <div class="col-12 col-lg-8 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-white py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>特征重要性
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="featureImportance" style="height: 300px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 错误提示模态框 -->
+<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="errorModalLabel">错误提示</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="errorModalBody">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<!-- 添加 SweetAlert2 脚本 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+// 确保 Plotly.js 已加载
+if (typeof Plotly === 'undefined') {
+    console.error('Plotly.js not loaded!');
+} else {
+    document.addEventListener('DOMContentLoaded', function() {
+        let priceChart = null;
+        let showingHistorical = true;
+        let showingPrediction = true;
+        
+        // 显示错误信息
+        function showError(message) {
+            console.error('Error:', message);
+            const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+            document.getElementById('errorModalBody').textContent = message;
+            errorModal.show();
+        }
+
+        // 显示成功信息
+        function showSuccess(message) {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+
+            Toast.fire({
+                icon: 'success',
+                title: message
+            });
+        }
+
+        // 加载城市列表
+        function loadCities() {
+            fetch('/api/cities')
+                .then(response => response.json())
+                .then(data => {
+                    const citySelect = document.getElementById('citySelect');
+                    citySelect.innerHTML = '<option value="">请选择城市...</option>';
+                    data.cities.forEach(city => {
+                        const option = document.createElement('option');
+                        option.value = city;
+                        option.textContent = city;
+                        citySelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('加载城市列表失败:', error);
+                    showError('加载城市列表失败，请刷新页面重试');
+                });
+        }
+
+        // 加载区域列表
+        function loadDistricts(city) {
+            fetch(`/api/districts?city=${encodeURIComponent(city)}`)
+                .then(response => response.json())
+                .then(data => {
+                    const districtSelect = document.getElementById('districtSelect');
+                    districtSelect.innerHTML = '<option value="">请选择区域...</option>';
+                    data.districts.forEach(district => {
+                        const option = document.createElement('option');
+                        option.value = district;
+                        option.textContent = district;
+                        districtSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('加载区域列表失败:', error);
+                    showError('加载区域列表失败，请刷新页面重试');
+                });
+        }
+
+        // 加载并绘制图表
+        function loadAndDrawCharts(city, district) {
+            console.log('开始加载数据...');
+
+            fetch(`/api/price_prediction?city=${encodeURIComponent(city)}&district=${encodeURIComponent(district)}`)
+                .then(response => {
+                    console.log('收到响应:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('数据加载成功:', data);
+
+                    if (data.error) {
+                        showError(data.error);
+                        return;
+                    }
+
+                    // 检查数据有效性
+                    if (!data.historical || !data.prediction || data.historical.length === 0) {
+                        showError('没有找到有效的数据');
+                        return;
+                    }
+
+                    try {
+                        // 更新模型信息
+                        document.getElementById('modelType').textContent = data.model_info.model_type;
+                        document.getElementById('featureCount').textContent = data.model_info.feature_count;
+                        document.getElementById('modelScore').textContent = data.model_info.model_score ? data.model_info.model_score.toFixed(4) : '-';
+
+                        // 准备图表数据
+                        const chartData = [];
+
+                        // 添加历史数据
+                        if (showingHistorical) {
+                            chartData.push({
+                                type: 'scatter',
+                                mode: 'lines',
+                                x: data.historical.dates,
+                                y: data.historical.prices,
+                                text: data.historical.dates,
+                                hoverinfo: 'text+x+y',
+                                line: {
+                                    color: 'rgba(31, 119, 180, 0.8)',
+                                    width: 2
+                                },
+                                name: '历史数据'
+                            });
+                        }
+
+                        // 添加预测数据
+                        if (showingPrediction && data.prediction.length > 0) {
+                            data.prediction.forEach((pred, index) => {
+                                chartData.push({
+                                    type: 'scatter',
+                                    mode: 'lines',
+                                    x: pred.dates,
+                                    y: pred.prices,
+                                    text: pred.district,
+                                    hoverinfo: 'text+x+y',
+                                    line: {
+                                        color: `rgba(255, ${index * 100}, 0, 0.8)`,
+                                        width: 2,
+                                        dash: 'dot'
+                                    },
+                                    name: `${pred.district}预测`
+                                });
+                            });
+                        }
+
+                        // 绘制价格趋势图
+                        const layout = {
+                            title: '',
+                            xaxis: {
+                                title: '日期',
+                                zeroline: false,
+                                tickangle: -45
+                            },
+                            yaxis: {
+                                title: '租金 (元/月)',
+                                zeroline: false
+                            },
+                            hovermode: 'closest',
+                            showlegend: true,
+                            legend: {
+                                x: 0,
+                                y: 1.1,
+                                orientation: 'h'
+                            },
+                            margin: {
+                                l: 50,
+                                r: 20,
+                                t: 20,
+                                b: 80
+                            }
+                        };
+
+                        const config = {
+                            responsive: true,
+                            displayModeBar: true,
+                            displaylogo: false,
+                            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+                        };
+
+                        // 绘制特征重要性图
+                        if (data.model_info.feature_importance) {
+                            const importanceData = [{
+                                type: 'bar',
+                                x: data.model_info.feature_importance.map(f => f.feature),
+                                y: data.model_info.feature_importance.map(f => f.importance),
+                                marker: {
+                                    color: 'rgba(44, 160, 44, 0.6)',
+                                    line: {
+                                        color: 'rgba(44, 160, 44, 1)',
+                                        width: 1
+                                    }
+                                },
+                                name: '特征重要性'
+                            }];
+
+                            const importanceLayout = {
+                                title: '',
+                                xaxis: {
+                                    title: '特征',
+                                    tickangle: -45
+                                },
+                                yaxis: {
+                                    title: '重要性',
+                                    range: [0, 1]
+                                },
+                                margin: {
+                                    l: 50,
+                                    r: 20,
+                                    t: 20,
+                                    b: 100
+                                }
+                            };
+
+                            Promise.all([
+                                Plotly.newPlot('priceChart', chartData, layout, config),
+                                Plotly.newPlot('featureImportance', importanceData, importanceLayout, config)
+                            ]).then(() => {
+                                console.log('图表绘制完成');
+                            }).catch(error => {
+                                console.error('绘制图表时出错:', error);
+                                showError('绘制图表时出错: ' + error.message);
+                            });
+                        } else {
+                            Plotly.newPlot('priceChart', chartData, layout, config)
+                                .then(() => {
+                                    console.log('图表绘制完成');
+                                })
+                                .catch(error => {
+                                    console.error('绘制图表时出错:', error);
+                                    showError('绘制图表时出错: ' + error.message);
+                                });
+                        }
+
+                    } catch (error) {
+                        console.error('处理数据时出错:', error);
+                        showError('处理数据时出错: ' + error.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载数据时出错:', error);
+                    showError('加载数据时出错: ' + error.message);
+                });
+        }
+
+        // 初始加载城市列表
+        loadCities();
+
+        // 城市选择变化时加载区域列表
+        document.getElementById('citySelect').addEventListener('change', function() {
+            const city = this.value;
+            if (city) {
+                loadDistricts(city);
+            } else {
+                document.getElementById('districtSelect').innerHTML = '<option value="">请先选择城市...</option>';
+            }
+        });
+
+        // 表单提交事件
+        document.getElementById('predictionForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const city = document.getElementById('citySelect').value;
+            const district = document.getElementById('districtSelect').value;
+            
+            if (!city || !district) {
+                showError('请选择城市和区域');
+                return;
+            }
+            
+            loadAndDrawCharts(city, district);
+        });
+
+        // 刷新按钮点击事件
+        document.getElementById('refreshData').addEventListener('click', function() {
+            const city = document.getElementById('citySelect').value;
+            const district = document.getElementById('districtSelect').value;
+            if (city && district) {
+                loadAndDrawCharts(city, district);
+            } else {
+                showError('请先选择城市和区域');
+            }
+        });
+
+        // 历史数据显示切换
+        document.getElementById('showHistorical').addEventListener('click', function() {
+            const plotDiv = document.getElementById('priceChart');
+            if (!plotDiv.data) return;  // 如果图表未加载，不执行操作
+            
+            showingHistorical = !showingHistorical;
+            this.classList.toggle('active');
+            
+            // 更新历史数据的可见性
+            Plotly.restyle(plotDiv, {
+                visible: showingHistorical
+            }, [0]);  // 假设历史数据是第一个trace
+        });
+
+        // 预测数据显示切换
+        document.getElementById('showPrediction').addEventListener('click', function() {
+            const plotDiv = document.getElementById('priceChart');
+            if (!plotDiv.data) return;  // 如果图表未加载，不执行操作
+            
+            showingPrediction = !showingPrediction;
+            this.classList.toggle('active');
+            
+            // 更新预测数据的可见性
+            const predictionTraces = Array.from({length: plotDiv.data.length - 1}, (_, i) => i + 1);
+            Plotly.restyle(plotDiv, {
+                visible: showingPrediction
+            }, predictionTraces);
+        });
+
+        // 重新训练模型
+        document.getElementById('retrainModel').addEventListener('click', function() {
+            // 显示确认对话框
+            Swal.fire({
+                title: '确认重新训练模型？',
+                text: "这可能需要一些时间，请耐心等待",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: '确定',
+                cancelButtonText: '取消'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // 显示加载动画
+                    Swal.fire({
+                        title: '正在重新训练模型...',
+                        html: '请耐心等待',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    // 发送重新训练请求
+                    fetch('/retrain_model', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('重新训练失败');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        Swal.close();
+                        if (data.error) {
+                            showError(data.error);
+                        } else {
+                            showSuccess('模型重新训练成功！');
+                            // 刷新当前页面以显示新模型信息
+                            location.reload();
+                        }
+                    })
+                    .catch(error => {
+                        Swal.close();
+                        showError('重新训练模型时发生错误: ' + error.message);
+                    });
+                }
+            });
+        });
+    });
+}
+</script>
+{% endblock %} 

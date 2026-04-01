@@ -1,0 +1,854 @@
+{% extends "base.html" %}
+
+{% block title %}数据管理{% endblock %}
+
+{% block page_title %}数据管理{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .search-box {
+        margin-bottom: 20px;
+    }
+    .filter-section {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+    .stats-box {
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .table th {
+        background-color: #f8f9fa;
+    }
+    .action-buttons {
+        white-space: nowrap;
+    }
+    .action-buttons .btn {
+        margin-right: 5px;
+    }
+    .city-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        background-color: #e3f2fd;
+        color: #1976d2;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        margin-right: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if not current_user.is_admin %}
+<div class="alert alert-warning">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    您没有权限访问此页面。只有管理员可以进行数据管理操作。
+</div>
+{% else %}
+<div class="container-fluid">
+    <!-- 数据导入导出区域 -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-header bg-light py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-file-import me-2"></i>数据导入导出
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <!-- 导入CSV表单 -->
+                        <div class="col-md-6">
+                            <div class="card border-0 bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-3 text-primary">
+                                        <i class="fas fa-download me-2"></i>导入数据
+                                    </h6>
+                                    <form action="{{ url_for('main.import_csv_data') }}" method="post" enctype="multipart/form-data" class="d-flex flex-column">
+                                        <div class="mb-3">
+                                            <label for="file" class="form-label small text-muted">选择CSV文件</label>
+                                            <div class="input-group">
+                                                <input type="file" name="file" id="file" class="form-control" required>
+                                                <button type="submit" class="btn btn-primary">
+                                                    导入
+                                                </button>
+                                            </div>
+                                            <div class="form-text">支持标准CSV格式的租房数据</div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 导出CSV表单 -->
+                        <div class="col-md-6">
+                            <div class="card border-0 bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-3 text-success">
+                                        <i class="fas fa-upload me-2"></i>导出数据
+                                    </h6>
+                                    <form action="{{ url_for('main.export_csv_data') }}" method="post" class="d-flex flex-column">
+                                        <div class="mb-3">
+                                            <label for="file_name" class="form-label small text-muted">文件名</label>
+                                            <div class="input-group">
+                                                <input type="text" name="file_name" id="file_name" class="form-control" placeholder="export_data.csv" required>
+                                                <button type="submit" class="btn btn-success">
+                                                    导出
+                                                </button>
+                                            </div>
+                                            <div class="form-text">将自动添加.csv后缀</div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据列表与管理 -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-table me-2"></i>租房数据列表
+                    </h5>
+                    <div>
+                        <button type="button" class="btn btn-danger me-2" id="btn-batch-delete" disabled>
+                            <i class="fas fa-trash-alt me-1"></i> 批量删除
+                            <span class="badge bg-light text-danger ms-1" id="selected-count">0</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRentalModal">
+                            <i class="fas fa-plus me-1"></i> 添加数据
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- 搜索和筛选部分 -->
+                    <div class="row mb-4 align-items-center">
+                        <div class="col-md-3">
+                            <form id="filter-form" class="d-flex">
+                                <div class="input-group">
+                                    <label class="input-group-text" for="city">城市</label>
+                                    <select class="form-select" id="city" name="city">
+                                        <option value="">全部城市</option>
+                                        {% for city in cities %}
+                                        <option value="{{ city }}" {% if city == selected_city %}selected{% endif %}>{{ city }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-md-6">
+                            <form id="search-form" class="d-flex">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="search" name="search" 
+                                           placeholder="搜索标题、位置、价格或面积" value="{{ search_term }}">
+                                    <button class="btn btn-outline-primary" type="submit">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                    {% if search_term %}
+                                    <a href="{{ url_for('main.data_management') }}" class="btn btn-outline-secondary">
+                                        <i class="fas fa-times"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <div class="badge bg-light text-dark p-2">
+                                <i class="fas fa-info-circle me-1"></i>
+                                共 <span class="text-primary fw-bold">{{ stats.total_count }}</span> 条数据，
+                                当前显示 <span class="text-primary fw-bold">{{ stats.displayed_count }}</span> 条
+                                (第 <span class="text-primary fw-bold">{{ stats.current_page }}</span> / {{ stats.page_count }} 页)
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if error_message %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>{{ error_message }}
+                    </div>
+                    {% endif %}
+
+                    <!-- 数据表格 -->
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped border-bottom align-middle">
+                            <thead class="table-light sticky-top" style="top: 0; z-index: 1;">
+                                <tr>
+                                    <th width="30" class="text-center">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="select-all">
+                                        </div>
+                                    </th>
+                                    <th width="60" class="text-center">ID</th>
+                                    <th width="80" class="text-center">图片</th>
+                                    <th>标题</th>
+                                    <th width="120">价格</th>
+                                    <th width="120">面积</th>
+                                    <th width="180">位置</th>
+                                    <th width="120">中介</th>
+                                    <th width="120" class="text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if rentals %}
+                                {% for rental in rentals %}
+                                    <tr data-id="{{ rental.id }}">
+                                        <td class="text-center">
+                                            <div class="form-check">
+                                                <input type="checkbox" class="form-check-input rental-checkbox" data-id="{{ rental.id }}">
+                                            </div>
+                                        </td>
+                                        <td class="text-center">{{ rental.id }}</td>
+                                        <td class="text-center">
+                                            {% if rental.img_url %}
+                                            <a href="{{ rental.source_url }}" target="_blank" title="点击查看房源详情">
+                                                <img src="{{ rental.img_url }}" alt="房源图片" class="img-thumbnail" style="width: 60px; height: 60px; object-fit: cover;">
+                                            </a>
+                                            {% else %}
+                                            <div class="bg-light rounded d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                                <i class="fas fa-home text-muted"></i>
+                                            </div>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-truncate" style="max-width: 200px;" title="{{ rental.title }}">
+                                            {% if rental.source_url %}
+                                            <a href="{{ rental.source_url }}" target="_blank" class="text-decoration-none text-dark">
+                                                {{ rental.title }}
+                                            </a>
+                                            {% else %}
+                                            {{ rental.title }}
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ rental.price }}</td>
+                                        <td>{{ rental.area }}</td>
+                                        <td>
+                                            <span class="city-tag">{{ rental.city }}</span>
+                                            {{ rental.location }}
+                                        </td>
+                                        <td>{{ rental.agent_name }}</td>
+                                        <td class="text-center">
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button type="button" class="btn btn-outline-info btn-edit" data-id="{{ rental.id }}" title="编辑">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger btn-delete" data-id="{{ rental.id }}" title="删除">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="9" class="text-center py-5 text-muted">
+                                            {% if search_term %}
+                                                <i class="fas fa-search fa-2x mb-3"></i>
+                                                <p>没有找到匹配的数据</p>
+                                            {% else %}
+                                                <i class="fas fa-database fa-2x mb-3"></i>
+                                                <p>暂无数据</p>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 分页 -->
+                    {% if pagination and pagination.pages > 1 %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            <!-- 上一页 -->
+                            {% if pagination.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('main.data_management', page=pagination.prev_num, search=search_term, city=selected_city) }}" aria-label="上一页">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">
+                                    <i class="fas fa-chevron-left"></i>
+                                </span>
+                            </li>
+                            {% endif %}
+
+                            <!-- 页码 -->
+                            {% for page in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                                {% if page %}
+                                    {% if page == pagination.page %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page }}</span>
+                                    </li>
+                                    {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('main.data_management', page=page, search=search_term, city=selected_city) }}">
+                                            {{ page }}
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            <!-- 下一页 -->
+                            {% if pagination.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('main.data_management', page=pagination.next_num, search=search_term, city=selected_city) }}" aria-label="下一页">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">
+                                    <i class="fas fa-chevron-right"></i>
+                                </span>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加/编辑租房数据的模态框 -->
+<div class="modal fade" id="rentalModal" tabindex="-1" aria-labelledby="rentalModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rentalModalLabel">添加租房数据</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="rentalForm">
+                    <input type="hidden" id="rental-id">
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="rental-title" class="form-label">标题 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="rental-title" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="rental-price" class="form-label">价格 <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="rental-price" required>
+                                <span class="input-group-text">元/月</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="rental-area" class="form-label">面积 <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="rental-area" required>
+                                <span class="input-group-text">平方米</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="rental-location" class="form-label">位置 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="rental-location" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="rental-agent-name" class="form-label">中介名称</label>
+                            <input type="text" class="form-control" id="rental-agent-name">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="rental-agent-company" class="form-label">中介公司</label>
+                            <input type="text" class="form-control" id="rental-agent-company">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="rental-source-url" class="form-label">来源链接</label>
+                            <input type="text" class="form-control" id="rental-source-url">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="rental-img-url" class="form-label">图片链接</label>
+                            <input type="text" class="form-control" id="rental-img-url">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="btn-save-rental">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">确认删除</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="fas fa-exclamation-triangle text-danger fa-3x"></i>
+                </div>
+                <p class="text-center">确定要删除这条租房数据吗？</p>
+                <p class="text-center text-muted small">此操作不可恢复</p>
+                <input type="hidden" id="delete-rental-id">
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-delete">确认删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量删除确认模态框 -->
+<div class="modal fade" id="batchDeleteModal" tabindex="-1" aria-labelledby="batchDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="batchDeleteModalLabel">批量删除</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="fas fa-exclamation-triangle text-danger fa-3x"></i>
+                </div>
+                <p class="text-center">确定要删除选中的 <span id="batch-delete-count" class="fw-bold">0</span> 条数据吗？</p>
+                <p class="text-center text-muted small">此操作不可恢复</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-batch-delete">确认删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function() {
+    // 状态管理
+    const state = {
+        modals: {},
+        selectedIds: new Set(),
+        currentAction: 'add',
+        isLoading: false,
+        apiEndpoints: {
+            base: '/api/rentals',
+            batchDelete: '/api/rentals/batch-delete'
+        }
+    };
+
+    // 工具函数
+    const utils = {
+        // 数字格式化
+        formatNumber: new Intl.NumberFormat('zh-CN').format,
+        
+        // 显示错误信息
+        showError: function(message, type = 'error') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type === 'error' ? 'danger' : 'warning'} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                <strong>${type === 'error' ? '错误' : '警告'}：</strong> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.card-body').prepend(alertDiv);
+            
+            // 5秒后自动关闭
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        },
+
+        // 防抖函数
+        debounce: function(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        },
+
+        // API请求封装
+        api: {
+            async request(url, options = {}) {
+                try {
+                    state.isLoading = true;
+                    const response = await fetch(url, {
+                        ...options,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...options.headers
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    return data;
+                } catch (error) {
+                    console.error('API Error:', error);
+                    throw error;
+                } finally {
+                    state.isLoading = false;
+                }
+            },
+            
+            get: (url) => utils.api.request(url),
+            post: (url, data) => utils.api.request(url, {
+                method: 'POST',
+                body: JSON.stringify(data)
+            }),
+            put: (url, data) => utils.api.request(url, {
+                method: 'PUT',
+                body: JSON.stringify(data)
+            }),
+            delete: (url) => utils.api.request(url, {
+                method: 'DELETE'
+            })
+        },
+
+        // 表单验证
+        validateForm: function(formData) {
+            const errors = [];
+            
+            if (!formData.title?.trim()) {
+                errors.push('标题不能为空');
+            }
+            
+            const price = parseFloat(formData.price);
+            if (isNaN(price) || price <= 0) {
+                errors.push('价格必须是大于0的数字');
+            }
+            
+            const area = parseFloat(formData.area);
+            if (isNaN(area) || area <= 0) {
+                errors.push('面积必须是大于0的数字');
+            }
+            
+            if (!formData.location?.trim()) {
+                errors.push('位置不能为空');
+            }
+            
+            return errors;
+        },
+
+        // URL参数处理
+        updateUrlParams: function(params) {
+            const url = new URL(window.location.href);
+            Object.entries(params).forEach(([key, value]) => {
+                if (value) {
+                    url.searchParams.set(key, value);
+                } else {
+                    url.searchParams.delete(key);
+                }
+            });
+            return url.toString();
+        }
+    };
+
+    // 初始化函数
+    function init() {
+        // 初始化模态框
+        state.modals = {
+            rental: new bootstrap.Modal(document.getElementById('rentalModal')),
+            delete: new bootstrap.Modal(document.getElementById('deleteModal')),
+            batchDelete: new bootstrap.Modal(document.getElementById('batchDeleteModal'))
+        };
+
+        // 绑定事件监听器
+        bindEventListeners();
+        
+        // 初始化表格滚动处理
+        initTableScroll();
+    }
+
+    // 事件监听器绑定
+    function bindEventListeners() {
+        // 全选/取消全选
+        const selectAllCheckbox = document.getElementById('select-all');
+        selectAllCheckbox?.addEventListener('change', handleSelectAll);
+
+        // 单个选择框变化
+        document.addEventListener('change', handleCheckboxChange);
+
+        // 批量删除按钮
+        document.getElementById('btn-batch-delete')?.addEventListener('click', () => {
+            state.modals.batchDelete.show();
+        });
+
+        // 确认批量删除
+        document.getElementById('btn-confirm-batch-delete')?.addEventListener('click', handleBatchDelete);
+
+        // 添加按钮
+        document.querySelector('[data-bs-target="#addRentalModal"]')?.addEventListener('click', handleAdd);
+
+        // 编辑按钮
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', () => handleEdit(btn.getAttribute('data-id')));
+        });
+
+        // 删除按钮
+        document.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', () => handleDelete(btn.getAttribute('data-id')));
+        });
+
+        // 保存按钮
+        document.getElementById('btn-save-rental')?.addEventListener('click', handleSave);
+
+        // 确认删除按钮
+        document.getElementById('btn-confirm-delete')?.addEventListener('click', handleConfirmDelete);
+
+        // 城市选择
+        document.getElementById('city')?.addEventListener('change', handleCityChange);
+
+        // 搜索表单
+        document.getElementById('search-form')?.addEventListener('submit', handleSearch);
+    }
+
+    // 处理全选/取消全选
+    function handleSelectAll(event) {
+        const checkboxes = document.querySelectorAll('.rental-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = event.target.checked;
+            const id = parseInt(checkbox.getAttribute('data-id'));
+            if (event.target.checked) {
+                state.selectedIds.add(id);
+            } else {
+                state.selectedIds.delete(id);
+            }
+        });
+        updateBatchDeleteButton();
+    }
+
+    // 处理单个复选框变化
+    function handleCheckboxChange(event) {
+        if (event.target.classList.contains('rental-checkbox')) {
+            const id = parseInt(event.target.getAttribute('data-id'));
+            if (event.target.checked) {
+                state.selectedIds.add(id);
+            } else {
+                state.selectedIds.delete(id);
+            }
+            updateBatchDeleteButton();
+            
+            // 更新全选状态
+            const selectAllCheckbox = document.getElementById('select-all');
+            const checkboxes = document.querySelectorAll('.rental-checkbox');
+            selectAllCheckbox.checked = Array.from(checkboxes).every(cb => cb.checked);
+        }
+    }
+
+    // 更新批量删除按钮状态
+    function updateBatchDeleteButton() {
+        const selectedCount = state.selectedIds.size;
+        const batchDeleteBtn = document.getElementById('btn-batch-delete');
+        
+        if (batchDeleteBtn) {
+            batchDeleteBtn.disabled = selectedCount === 0;
+            document.getElementById('batch-delete-count').textContent = selectedCount;
+            document.getElementById('selected-count').textContent = selectedCount;
+        }
+    }
+
+    // 处理批量删除
+    async function handleBatchDelete() {
+        if (state.selectedIds.size === 0) return;
+
+        try {
+            await utils.api.post(state.apiEndpoints.batchDelete, {
+                ids: Array.from(state.selectedIds)
+            });
+            window.location.reload();
+        } catch (error) {
+            utils.showError('批量删除失败：' + error.message);
+        } finally {
+            state.modals.batchDelete.hide();
+        }
+    }
+
+    // 处理添加
+    function handleAdd() {
+        document.getElementById('rentalForm').reset();
+        document.getElementById('rental-id').value = '';
+        document.getElementById('rentalModalLabel').textContent = '添加租房数据';
+        state.currentAction = 'add';
+        state.modals.rental.show();
+    }
+
+    // 处理编辑
+    async function handleEdit(rentalId) {
+        try {
+            document.getElementById('rentalModalLabel').textContent = '编辑租房数据';
+            state.currentAction = 'edit';
+            
+            const data = await utils.api.get(`${state.apiEndpoints.base}/${rentalId}`);
+            fillForm(data);
+            state.modals.rental.show();
+        } catch (error) {
+            utils.showError('获取数据失败：' + error.message);
+        }
+    }
+
+    // 填充表单
+    function fillForm(data) {
+        const fields = [
+            'id', 'title', 'price', 'area', 'location',
+            'source_url', 'img_url', 'agent_name', 'agent_company'
+        ];
+        
+        fields.forEach(field => {
+            const element = document.getElementById(`rental-${field}`);
+            if (element) {
+                element.value = data[field] || '';
+            }
+        });
+    }
+
+    // 处理删除
+    function handleDelete(rentalId) {
+        document.getElementById('delete-rental-id').value = rentalId;
+        state.modals.delete.show();
+    }
+
+    // 处理确认删除
+    async function handleConfirmDelete() {
+        const rentalId = document.getElementById('delete-rental-id').value;
+        
+        try {
+            await utils.api.delete(`${state.apiEndpoints.base}/${rentalId}`);
+            
+            const row = document.querySelector(`tr[data-id="${rentalId}"]`);
+            if (row) {
+                row.remove();
+                // 如果删除后表格为空，刷新页面
+                if (document.querySelectorAll('tbody tr').length === 0) {
+                    window.location.reload();
+                }
+            }
+        } catch (error) {
+            utils.showError('删除失败：' + error.message);
+        } finally {
+            state.modals.delete.hide();
+        }
+    }
+
+    // 处理保存
+    async function handleSave() {
+        const form = document.getElementById('rentalForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        
+        const formData = {
+            title: document.getElementById('rental-title').value,
+            price: document.getElementById('rental-price').value,
+            area: document.getElementById('rental-area').value,
+            location: document.getElementById('rental-location').value,
+            source_url: document.getElementById('rental-source-url').value,
+            img_url: document.getElementById('rental-img-url').value,
+            agent_name: document.getElementById('rental-agent-name').value,
+            agent_company: document.getElementById('rental-agent-company').value
+        };
+        
+        // 验证表单数据
+        const errors = utils.validateForm(formData);
+        if (errors.length > 0) {
+            utils.showError(errors.join('\n'));
+            return;
+        }
+        
+        try {
+            if (state.currentAction === 'edit') {
+                const rentalId = document.getElementById('rental-id').value;
+                await utils.api.put(`${state.apiEndpoints.base}/${rentalId}`, formData);
+            } else {
+                await utils.api.post(state.apiEndpoints.base, formData);
+            }
+            window.location.reload();
+        } catch (error) {
+            utils.showError('保存失败：' + error.message);
+        } finally {
+            state.modals.rental.hide();
+        }
+    }
+
+    // 处理城市选择变化
+    function handleCityChange(event) {
+        const searchTerm = document.getElementById('search').value;
+        window.location.href = utils.updateUrlParams({
+            city: event.target.value,
+            search: searchTerm,
+            page: '1'
+        });
+    }
+
+    // 处理搜索
+    function handleSearch(event) {
+        event.preventDefault();
+        const selectedCity = document.getElementById('city').value;
+        const searchTerm = document.getElementById('search').value;
+        window.location.href = utils.updateUrlParams({
+            city: selectedCity,
+            search: searchTerm,
+            page: '1'
+        });
+    }
+
+    // 初始化表格滚动
+    function initTableScroll() {
+        const tableContainer = document.querySelector('.table-responsive');
+        if (tableContainer) {
+            const handleScroll = utils.debounce(() => {
+                const thead = tableContainer.querySelector('thead');
+                if (thead) {
+                    thead.style.transform = `translateY(${tableContainer.scrollTop}px)`;
+                }
+            }, 10);
+            
+            tableContainer.addEventListener('scroll', handleScroll);
+        }
+    }
+
+    // 启动应用
+    document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %} 

@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}{{ rental.title }}{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    /* 全局变量定义 - 统一配色方案 */
+    :root {
+        --primary-color: #2563eb;
+        --primary-hover: #1d4ed8;
+        --text-primary: #1f2937;
+        --text-secondary: #4b5563;
+        --bg-primary: #ffffff;
+        --bg-secondary: #f3f4f6;
+        --border-color: #e5e7eb;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --radius-sm: 0.375rem;
+        --radius-md: 0.75rem;
+        --radius-lg: 1rem;
+    }
+
+    /* 容器样式 */
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 1.5rem;
+    }
+
+    /* 卡片基础样式 */
+    .rental-detail-card {
+        background-color: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--border-color);
+    }
+
+    /* 图片容器 */
+    .rental-image {
+        width: 100%;
+        height: 450px;
+        object-fit: cover;
+        border-top-left-radius: var(--radius-lg);
+        border-top-right-radius: var(--radius-lg);
+    }
+
+    /* 内容区域 */
+    .rental-info {
+        padding: 2rem;
+    }
+
+    /* 标题样式 */
+    .rental-title {
+        color: var(--text-primary);
+        font-size: 1.875rem;
+        font-weight: 700;
+        line-height: 1.2;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    /* 信息项统一样式 */
+    .info-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+        color: var(--text-secondary);
+    }
+
+    .info-item i {
+        width: 1.5rem;
+        margin-right: 0.75rem;
+        color: var(--primary-color);
+        font-size: 1.125rem;
+    }
+
+    /* 中介信息卡片 */
+    .agent-info {
+        background-color: var(--bg-secondary);
+        padding: 1.5rem;
+        border-radius: var(--radius-md);
+        margin-top: 1.5rem;
+    }
+
+    .agent-info h5 {
+        color: var(--text-primary);
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    /* 按钮和链接统一样式 */
+    .source-link a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.75rem 1.5rem;
+        background-color: var(--primary-color);
+        color: white;
+        border-radius: var(--radius-md);
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .source-link a:hover {
+        background-color: var(--primary-hover);
+        transform: translateY(-1px);
+    }
+
+    .source-link a i {
+        margin-right: 0.5rem;
+    }
+
+    /* 返回链接样式 */
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-weight: 500;
+        margin-bottom: 1.5rem;
+        transition: color 0.2s ease;
+    }
+
+    .back-link:hover {
+        color: var(--text-primary);
+    }
+
+    .back-link i {
+        margin-right: 0.5rem;
+    }
+
+    /* 响应式布局 */
+    @media (max-width: 768px) {
+        .container {
+            padding: 1rem;
+        }
+
+        .rental-image {
+            height: 300px;
+        }
+
+        .rental-info {
+            padding: 1.5rem;
+        }
+
+        .rental-title {
+            font-size: 1.5rem;
+        }
+
+        .info-item {
+            font-size: 0.875rem;
+        }
+    }
+
+    /* 动画效果 */
+    .rental-detail-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .rental-detail-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.15);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <a href="{{ url_for('main.recommendation') }}" class="back-link">
+        <i class="fas fa-arrow-left"></i> 返回推荐列表
+    </a>
+
+    <div class="rental-detail-card">
+        {% if rental.img_url %}
+        <img src="{{ rental.img_url }}" alt="{{ rental.title }}" class="rental-image">
+        {% endif %}
+
+        <div class="rental-info">
+            <h1 class="rental-title">{{ rental.title }}</h1>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="info-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>位置：{{ rental.location }}</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-city"></i>
+                        <span>城市：{{ rental.city }}</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-yen-sign"></i>
+                        <span>租金：{{ rental.price }}</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-home"></i>
+                        <span>面积：{{ rental.area }}</span>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="agent-info">
+                        <h5 class="mb-3">中介信息</h5>
+                        <div class="info-item">
+                            <i class="fas fa-user"></i>
+                            <span>姓名：{{ rental.agent_name or '未提供' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-building"></i>
+                            <span>公司：{{ rental.agent_company or '未提供' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if rental.source_url %}
+            <div class="source-link">
+                <a href="{{ rental.source_url }}" target="_blank">
+                    <i class="fas fa-external-link-alt"></i> 查看房源原始页面
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

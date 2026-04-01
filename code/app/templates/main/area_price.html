@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}面积租金分析 - 租房数据分析{% endblock %}
+
+{% block page_title %}面积租金分析{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- 散点图卡片 -->
+        <div class="col-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-chart-line"></i>面积与租金关系散点图
+                        </h5>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="showTrendline">
+                                <i class="fas fa-chart-line me-1"></i>显示趋势线
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="showAverageLine">
+                                <i class="fas fa-chart-bar me-1"></i>显示区间均值
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshData">
+                                <i class="fas fa-sync-alt me-1"></i>刷新数据
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="scatterPlot" style="height: 500px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计信息卡片 -->
+        <div class="col-12 col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-white py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>统计信息
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush" id="statsInfo">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>样本数量</span>
+                            <span class="badge bg-primary rounded-pill" id="sampleCount">-</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>平均面积</span>
+                            <span class="badge bg-info rounded-pill" id="avgArea">-</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>平均租金</span>
+                            <span class="badge bg-success rounded-pill" id="avgPrice">-</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>相关系数</span>
+                            <span class="badge bg-warning rounded-pill" id="correlation">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 区间分析卡片 -->
+        <div class="col-12 col-lg-8 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-white py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>面积区间租金分析
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="rangeAnalysis" style="height: 300px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 错误提示模态框 -->
+<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="errorModalLabel">错误提示</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="errorModalBody">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// 确保 Plotly.js 已加载
+if (typeof Plotly === 'undefined') {
+    console.error('Plotly.js not loaded!');
+} else {
+    document.addEventListener('DOMContentLoaded', function() {
+        let scatterPlot = null;
+        let showingTrendline = true;
+        let showingAverageLine = true;
+        
+        // 显示错误信息
+        function showError(message) {
+            console.error('Error:', message);
+            const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+            document.getElementById('errorModalBody').textContent = message;
+            errorModal.show();
+        }
+
+        // 加载并绘制图表
+        function loadAndDrawCharts() {
+            console.log('开始加载数据...');
+
+            fetch('/api/area_price')
+                .then(response => {
+                    console.log('收到响应:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('数据加载成功:', data);
+
+                    if (data.error) {
+                        showError(data.error);
+                        return;
+                    }
+
+                    // 检查数据有效性
+                    if (!data.areas || !data.prices || data.areas.length === 0) {
+                        showError('没有找到有效的数据');
+                        return;
+                    }
+
+                    try {
+                        // 更新统计信息
+                        document.getElementById('sampleCount').textContent = data.stats.sample_count;
+                        document.getElementById('avgArea').textContent = data.stats.avg_area + ' m²';
+                        document.getElementById('avgPrice').textContent = data.stats.avg_price + ' 元/月';
+                        document.getElementById('correlation').textContent = data.stats.correlation;
+
+                        // 准备散点图数据
+                        const scatterData = [{
+                            type: 'scatter',
+                            mode: 'markers',
+                            x: data.areas,
+                            y: data.prices,
+                            text: data.hover_texts,
+                            hoverinfo: 'text+x+y',
+                            marker: {
+                                size: 8,
+                                color: 'rgba(31, 119, 180, 0.6)',
+                                line: {
+                                    color: 'rgba(31, 119, 180, 1)',
+                                    width: 1
+                                }
+                            },
+                            name: '房源数据'
+                        }];
+
+                        // 添加趋势线
+                        if (data.trend && data.trend.x && data.trend.y) {
+                            scatterData.push({
+                                type: 'scatter',
+                                mode: 'lines',
+                                x: data.trend.x,
+                                y: data.trend.y,
+                                line: {
+                                    color: 'rgba(255, 0, 0, 0.8)',
+                                    width: 2,
+                                    dash: 'dot'
+                                },
+                                name: '趋势线'
+                            });
+                        }
+
+                        // 添加区间平均线
+                        if (data.range_stats && data.range_stats.x && data.range_stats.avg_y) {
+                            scatterData.push({
+                                type: 'scatter',
+                                mode: 'lines+markers',
+                                x: data.range_stats.x,
+                                y: data.range_stats.avg_y,
+                                line: {
+                                    color: 'rgba(44, 160, 44, 0.8)',
+                                    width: 2
+                                },
+                                marker: {
+                                    size: 8,
+                                    symbol: 'diamond'
+                                },
+                                name: '区间均值'
+                            });
+
+                            // 添加区间范围
+                            scatterData.push({
+                                type: 'scatter',
+                                mode: 'lines',
+                                x: data.range_stats.x.concat(data.range_stats.x.slice().reverse()),
+                                y: data.range_stats.min_y.concat(data.range_stats.max_y.slice().reverse()),
+                                fill: 'toself',
+                                fillcolor: 'rgba(44, 160, 44, 0.1)',
+                                line: {
+                                    color: 'transparent'
+                                },
+                                showlegend: false,
+                                name: '价格范围'
+                            });
+                        }
+
+                        // 绘制散点图
+                        const layout = {
+                            title: '',
+                            xaxis: {
+                                title: '面积 (平方米)',
+                                zeroline: false
+                            },
+                            yaxis: {
+                                title: '租金 (元/月)',
+                                zeroline: false
+                            },
+                            hovermode: 'closest',
+                            showlegend: true,
+                            legend: {
+                                x: 0,
+                                y: 1.1,
+                                orientation: 'h'
+                            },
+                            margin: {
+                                l: 50,
+                                r: 20,
+                                t: 20,
+                                b: 50
+                            }
+                        };
+
+                        const config = {
+                            responsive: true,
+                            displayModeBar: true,
+                            displaylogo: false,
+                            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+                        };
+
+                        // 绘制图表
+                        Promise.all([
+                            Plotly.newPlot('scatterPlot', scatterData, layout, config),
+                            data.range_stats ? Plotly.newPlot('rangeAnalysis', [{
+                                type: 'bar',
+                                x: data.range_stats.x.map(x => x + ' m²'),
+                                y: data.range_stats.avg_y,
+                                error_y: {
+                                    type: 'data',
+                                    array: data.range_stats.avg_y.map((avg, i) => data.range_stats.max_y[i] - avg),
+                                    arrayminus: data.range_stats.avg_y.map((avg, i) => avg - data.range_stats.min_y[i]),
+                                    color: 'rgba(44, 160, 44, 0.6)'
+                                },
+                                marker: {
+                                    color: 'rgba(44, 160, 44, 0.6)',
+                                    line: {
+                                        color: 'rgba(44, 160, 44, 1)',
+                                        width: 1
+                                    }
+                                },
+                                name: '区间均价'
+                            }], {
+                                title: '',
+                                xaxis: {
+                                    title: '面积区间',
+                                    tickangle: -45
+                                },
+                                yaxis: {
+                                    title: '租金 (元/月)'
+                                },
+                                margin: {
+                                    l: 50,
+                                    r: 20,
+                                    t: 20,
+                                    b: 100
+                                }
+                            }, config) : Promise.resolve()
+                        ]).then(() => {
+                            console.log('图表绘制完成');
+                        }).catch(error => {
+                            console.error('绘制图表时出错:', error);
+                            showError('绘制图表时出错: ' + error.message);
+                        });
+
+                    } catch (error) {
+                        console.error('处理数据时出错:', error);
+                        showError('处理数据时出错: ' + error.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载数据时出错:', error);
+                    showError('加载数据时出错: ' + error.message);
+                });
+        }
+
+        // 初始加载
+        loadAndDrawCharts();
+
+        // 刷新按钮点击事件
+        document.getElementById('refreshData').addEventListener('click', loadAndDrawCharts);
+
+        // 趋势线显示切换
+        document.getElementById('showTrendline').addEventListener('click', function() {
+            const plotDiv = document.getElementById('scatterPlot');
+            if (!plotDiv.data) return;  // 如果图表未加载，不执行操作
+            
+            showingTrendline = !showingTrendline;
+            this.classList.toggle('active');
+            
+            // 更新趋势线的可见性
+            Plotly.restyle(plotDiv, {
+                visible: showingTrendline
+            }, [1]);  // 假设趋势线是第二个trace
+        });
+
+        // 区间均值线显示切换
+        document.getElementById('showAverageLine').addEventListener('click', function() {
+            const plotDiv = document.getElementById('scatterPlot');
+            if (!plotDiv.data) return;  // 如果图表未加载，不执行操作
+            
+            showingAverageLine = !showingAverageLine;
+            this.classList.toggle('active');
+            
+            // 更新区间均值线和范围的可见性
+            Plotly.restyle(plotDiv, {
+                visible: showingAverageLine
+            }, [2, 3]);  // 假设区间均值线和范围是第三和第四个trace
+        });
+    });
+}
+</script>
+{% endblock %}

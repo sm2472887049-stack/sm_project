@@ -1,0 +1,921 @@
+{% extends "base.html" %}
+
+{% block title %}智能房源推荐{% endblock %}
+
+{% block page_title %}热门房源推荐{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<!-- 添加 Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* Select2 样式优化 */
+    .select2-container {
+        width: 100% !important;
+    }
+
+    .select2-container--default .select2-selection--multiple {
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        min-height: 38px;
+        padding: 2px;
+    }
+
+    .select2-container--default.select2-container--focus .select2-selection--multiple {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        background-color: #007bff;
+        border: none;
+        color: white;
+        padding: 4px 10px;
+        margin: 4px;
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+        color: white;
+        margin-right: 6px;
+        font-size: 16px;
+        line-height: 1;
+    }
+
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+        color: #fff;
+        background-color: rgba(255,255,255,0.2);
+        border-radius: 2px;
+    }
+
+    .select2-container--default .select2-search--inline .select2-search__field {
+        margin-top: 6px;
+        padding-left: 8px;
+    }
+
+    .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: #007bff;
+    }
+
+    /* 已选区域标签样式 */
+    .selected-districts {
+        margin-top: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .district-tag {
+        display: inline-flex;
+        align-items: center;
+        background-color: #e9ecef;
+        color: #495057;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+
+    .district-tag.active {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .district-tag:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .district-tag .remove-btn {
+        margin-left: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        opacity: 0.7;
+        line-height: 1;
+    }
+
+    .district-tag .remove-btn:hover {
+        opacity: 1;
+    }
+    
+    /* 滑块样式优化 */
+    .slider-container {
+        padding: 10px;
+        margin: 15px 0;
+    }
+
+    .noUi-connect {
+        background: #007bff;
+    }
+
+    .noUi-handle {
+        border: 1px solid #007bff;
+        background: #fff;
+        border-radius: 50%;
+        cursor: pointer;
+    }
+
+    .noUi-handle:before,
+    .noUi-handle:after {
+        display: none;
+    }
+
+    .form-range {
+        height: 6px;
+        padding: 0;
+        background: #e9ecef;
+        border-radius: 3px;
+        outline: none;
+        opacity: 0.7;
+        transition: opacity .2s;
+    }
+
+    .form-range:hover {
+        opacity: 1;
+    }
+
+    .form-range::-webkit-slider-thumb {
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        background: #007bff;
+        border-radius: 50%;
+        cursor: pointer;
+    }
+
+    /* 输入框组样式 */
+    .input-group {
+        margin-bottom: 10px;
+    }
+
+    .input-group-text {
+        background-color: #f8f9fa;
+        border-color: #ced4da;
+        color: #495057;
+    }
+
+    /* 警告提示样式 */
+    .selection-limit-warning {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        background-color: rgba(220, 53, 69, 0.1);
+        display: none;
+    }
+
+    /* 表单组样式 */
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        color: #495057;
+    }
+
+    .form-group small {
+        color: #6c757d;
+    }
+
+    /* 按钮样式 */
+    .btn-primary {
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,123,255,0.3);
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .slider-container {
+            padding: 5px;
+            margin: 10px 0;
+        }
+
+        .district-tag {
+            padding: 4px 10px;
+            font-size: 0.8125rem;
+        }
+    }
+
+    /* 推荐卡片样式 */
+    .recommendation-card {
+        transition: transform 0.2s;
+        margin-bottom: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .recommendation-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+    }
+
+    .rental-image {
+        height: 200px;
+        object-fit: cover;
+        width: 100%;
+    }
+
+    .score-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-weight: bold;
+    }
+
+    .feature-score {
+        display: inline-block;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+
+    .reason-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        margin-right: 5px;
+        margin-bottom: 5px;
+        border-radius: 15px;
+        font-size: 12px;
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+
+    /* 禁用状态下的选项样式 */
+    .select2-results__option[aria-disabled=true] {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    /* 弹窗样式优化 */
+    .modal-content {
+        border: none;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+    
+    .modal-header {
+        padding: 1.5rem 2rem;
+        background-color: var(--bg-primary);
+    }
+    
+    .modal-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    
+    .rental-detail-content {
+        padding: 0;
+    }
+    
+    .rental-detail-image {
+        width: 100%;
+        height: 300px;
+        object-fit: cover;
+    }
+    
+    .rental-detail-info {
+        padding: 2rem;
+    }
+    
+    .rental-detail-price {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+    }
+    
+    .rental-detail-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+        color: var(--text-secondary);
+    }
+    
+    .rental-detail-item i {
+        width: 1.5rem;
+        margin-right: 0.75rem;
+        color: var(--primary-color);
+    }
+    
+    .rental-detail-agent {
+        background-color: var(--bg-secondary);
+        padding: 1.5rem;
+        border-radius: var(--radius-md);
+        margin-top: 1.5rem;
+    }
+    
+    .rental-detail-agent h6 {
+        color: var(--text-primary);
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    
+    .source-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.75rem 1.5rem;
+        background-color: var(--primary-color);
+        color: white;
+        border-radius: var(--radius-md);
+        text-decoration: none;
+        margin-top: 1.5rem;
+        transition: all 0.2s ease;
+    }
+    
+    .source-button:hover {
+        background-color: var(--primary-hover);
+        transform: translateY(-1px);
+        color: white;
+    }
+    
+    .source-button i {
+        margin-right: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- 筛选条件面板 -->
+    <div class="col-md-4 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold">筛选条件</h6>
+            </div>
+            <div class="card-body">
+                <form id="filterForm">
+                    <!-- 城市选择 -->
+                    <div class="form-group mb-3">
+                        <label for="city">选择城市</label>
+                        <select class="form-select" id="city" name="city">
+                            <option value="">全部城市</option>
+                            {% for city in cities %}
+                            <option value="{{ city }}">{{ city }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- 区域选择 -->
+                    <div class="form-group mb-3">
+                        <label for="district">选择区域 <small class="text-muted">(最多选择3个)</small></label>
+                        <select class="form-select select2" id="district" name="district" multiple data-placeholder="请选择区域">
+                            {% for city, districts in districts_by_city.items() %}
+                            <optgroup label="{{ city }}">
+                                {% for district in districts %}
+                                <option value="{{ district }}">{{ district }}</option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endfor %}
+                        </select>
+                        <div id="selectionLimitWarning" class="selection-limit-warning">
+                            <i class="fas fa-exclamation-circle me-1"></i>最多只能选择3个区域
+                        </div>
+                        <div class="selected-districts mt-2" id="selectedDistricts"></div>
+                    </div>
+                    
+                    <!-- 价格范围 -->
+                    <div class="form-group mb-4">
+                        <label>价格范围</label>
+                        <div class="input-group mb-2">
+                            <input type="number" class="form-control" id="minPrice" min="{{ price_range.min }}" max="{{ price_range.max }}" value="{{ price_range.min }}">
+                            <span class="input-group-text">至</span>
+                            <input type="number" class="form-control" id="maxPrice" min="{{ price_range.min }}" max="{{ price_range.max }}" value="{{ price_range.max }}">
+                            <span class="input-group-text">元/月</span>
+                        </div>
+                        <div class="slider-container">
+                            <div id="priceSlider"></div>
+                        </div>
+                        <small class="form-text text-muted" id="priceRangeValue"></small>
+                    </div>
+                    
+                    <!-- 面积范围 -->
+                    <div class="form-group mb-4">
+                        <label>面积范围</label>
+                        <div class="input-group mb-2">
+                            <input type="number" class="form-control" id="minArea" min="{{ area_range.min }}" max="{{ area_range.max }}" value="{{ area_range.min }}">
+                            <span class="input-group-text">至</span>
+                            <input type="number" class="form-control" id="maxArea" min="{{ area_range.min }}" max="{{ area_range.max }}" value="{{ area_range.max }}">
+                            <span class="input-group-text">m²</span>
+                        </div>
+                        <div class="slider-container">
+                            <div id="areaSlider"></div>
+                        </div>
+                        <small class="form-text text-muted" id="areaRangeValue"></small>
+                    </div>
+                    
+                    <!-- 特征权重设置 -->
+                    <div class="form-group mb-4">
+                        <label>特征重要性设置</label>
+                        
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label for="priceWeight" class="form-label mb-0">价格重要性</label>
+                                <span class="badge bg-primary" id="priceWeightValue">5</span>
+                            </div>
+                            <input type="range" class="form-range weight-slider" id="priceWeight" min="0" max="10" value="5">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label for="areaWeight" class="form-label mb-0">面积重要性</label>
+                                <span class="badge bg-primary" id="areaWeightValue">5</span>
+                            </div>
+                            <input type="range" class="form-range weight-slider" id="areaWeight" min="0" max="10" value="5">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label for="locationWeight" class="form-label mb-0">位置重要性</label>
+                                <span class="badge bg-primary" id="locationWeightValue">5</span>
+                            </div>
+                            <input type="range" class="form-range weight-slider" id="locationWeight" min="0" max="10" value="5">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>推荐房源
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 推荐结果面板 -->
+    <div class="col-md-8">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold">推荐结果</h6>
+                <div id="resultCount" class="text-muted"></div>
+            </div>
+            <div class="card-body">
+                <div id="loadingIndicator" class="text-center py-5" style="display:none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-2">正在进行智能推荐，请稍候...</p>
+                </div>
+                
+                <div id="noResultsMessage" class="text-center py-5" style="display:none;">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5>未找到符合条件的房源</h5>
+                    <p class="text-muted">请尝试调整筛选条件后重新搜索</p>
+                </div>
+                
+                <div id="resultsContainer">
+                    <!-- 推荐结果将通过JS动态加载到这里 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 房源详情模态框 -->
+<div class="modal fade" id="rentalDetailModal" tabindex="-1" aria-labelledby="rentalDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title" id="rentalDetailModalLabel"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="modalContent">
+                    <!-- 房源详情内容将通过JS动态加载 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css">
+<script src="https://cdn.jsdelivr.net/npm/nouislider@14.6.3/distribute/nouislider.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@14.6.3/distribute/nouislider.min.css">
+
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const notyf = new Notyf({
+        duration: 3000,
+        position: { x: 'right', y: 'top' }
+    });
+    
+    // 存储所有城市和区域的数据
+    const districtsData = JSON.parse('{{ districts_by_city|tojson|safe }}');
+    
+    // 城市选择变化时更新区域选项
+    $('#city').on('change', function() {
+        const selectedCity = $(this).val();
+        const districtSelect = $('#district');
+        
+        // 清空当前选择
+        districtSelect.val(null).trigger('change');
+        
+        // 获取所有选项组
+        const optgroups = districtSelect.find('optgroup');
+        
+        if (selectedCity) {
+            // 隐藏所有选项组，只显示选中城市的选项组
+            optgroups.each(function() {
+                if ($(this).attr('label') === selectedCity) {
+                    $(this).prop('disabled', false);
+                    $(this).show();
+                } else {
+                    $(this).prop('disabled', true);
+                    $(this).hide();
+                }
+            });
+        } else {
+            // 显示所有选项组
+            optgroups.prop('disabled', false).show();
+        }
+        
+        // 刷新Select2
+        districtSelect.select2('destroy').select2({
+            placeholder: '请选择区域（最多3个）',
+            maximumSelectionLength: 3,
+            language: {
+                maximumSelected: function() {
+                    return '最多只能选择3个区域';
+                },
+                noResults: function() {
+                    return '没有找到匹配的区域';
+                }
+            }
+        });
+    });
+    
+    // 初始化价格滑块
+    const priceSlider = document.getElementById('priceSlider');
+    noUiSlider.create(priceSlider, {
+        start: [Number("{{ price_range.min }}"), Number("{{ price_range.max }}")],
+        connect: true,
+        step: 100,
+        range: {
+            'min': Number("{{ price_range.min }}"),
+            'max': Number("{{ price_range.max }}")
+        }
+    });
+    
+    // 初始化面积滑块
+    const areaSlider = document.getElementById('areaSlider');
+    noUiSlider.create(areaSlider, {
+        start: [Number("{{ area_range.min }}"), Number("{{ area_range.max }}")],
+        connect: true,
+        step: 1,
+        range: {
+            'min': Number("{{ area_range.min }}"),
+            'max': Number("{{ area_range.max }}")
+        }
+    });
+    
+    // 价格滑块事件
+    const minPriceInput = document.getElementById('minPrice');
+    const maxPriceInput = document.getElementById('maxPrice');
+    const priceRangeValue = document.getElementById('priceRangeValue');
+
+    priceSlider.noUiSlider.on('update', function(values, handle) {
+        const [min, max] = values.map(value => Math.round(parseFloat(value)));
+        minPriceInput.value = min;
+        maxPriceInput.value = max;
+        priceRangeValue.textContent = `当前范围：${min} - ${max} 元/月`;
+    });
+    
+    // 价格输入框事件处理
+    [minPriceInput, maxPriceInput].forEach(input => {
+        input.addEventListener('change', function() {
+            const min = parseInt(minPriceInput.value);
+            const max = parseInt(maxPriceInput.value);
+            
+            if (min > max) {
+                if (this === minPriceInput) {
+                    this.value = max;
+                } else {
+                    this.value = min;
+                }
+                notyf.warning('最小值不能大于最大值');
+            }
+            
+            priceSlider.noUiSlider.set([
+                this === minPriceInput ? this.value : null,
+                this === maxPriceInput ? this.value : null
+            ]);
+        });
+    });
+    
+    // 面积滑块事件
+    const minAreaInput = document.getElementById('minArea');
+    const maxAreaInput = document.getElementById('maxArea');
+    const areaRangeValue = document.getElementById('areaRangeValue');
+
+    areaSlider.noUiSlider.on('update', function(values, handle) {
+        const [min, max] = values.map(value => Math.round(parseFloat(value)));
+        minAreaInput.value = min;
+        maxAreaInput.value = max;
+        areaRangeValue.textContent = `当前范围：${min} - ${max} m²`;
+    });
+    
+    // 面积输入框事件处理
+    [minAreaInput, maxAreaInput].forEach(input => {
+        input.addEventListener('change', function() {
+            const min = parseInt(minAreaInput.value);
+            const max = parseInt(maxAreaInput.value);
+            
+            if (min > max) {
+                if (this === minAreaInput) {
+                    this.value = max;
+                } else {
+                    this.value = min;
+                }
+                notyf.warning('最小值不能大于最大值');
+            }
+            
+            areaSlider.noUiSlider.set([
+                this === minAreaInput ? this.value : null,
+                this === maxAreaInput ? this.value : null
+            ]);
+        });
+    });
+    
+    // 权重滑块事件
+    document.querySelectorAll('.weight-slider').forEach(slider => {
+        slider.addEventListener('input', function() {
+            document.getElementById(`${this.id}Value`).textContent = this.value;
+        });
+    });
+    
+    // 表单提交处理
+    document.getElementById('filterForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // 显示加载状态
+        const submitButton = this.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.innerHTML;
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>正在加载推荐...';
+        
+        // 显示加载指示器
+        document.getElementById('loadingIndicator').style.display = 'block';
+        document.getElementById('noResultsMessage').style.display = 'none';
+        document.getElementById('resultsContainer').innerHTML = '';
+        
+        try {
+            // 收集表单数据
+            const formData = {
+                city: document.getElementById('city').value,
+                districts: Array.from(document.getElementById('district').selectedOptions).map(opt => opt.value),
+                price_range: {
+                    min: parseInt(document.getElementById('minPrice').value),
+                    max: parseInt(document.getElementById('maxPrice').value)
+                },
+                area_range: {
+                    min: parseInt(document.getElementById('minArea').value),
+                    max: parseInt(document.getElementById('maxArea').value)
+                },
+                weights: {
+                    price: parseInt(document.getElementById('priceWeight').value),
+                    area: parseInt(document.getElementById('areaWeight').value),
+                    location: parseInt(document.getElementById('locationWeight').value)
+                }
+            };
+
+            // 发送请求
+            const response = await fetch('/api/recommend', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.message || '获取推荐失败');
+            }
+
+            // 更新推荐结果显示
+            updateRecommendations(data.recommendations);
+            
+            // 显示成功消息
+            notyf.success('已更新推荐结果');
+            
+        } catch (error) {
+            console.error('Error:', error);
+            notyf.error(error.message || '获取推荐失败，请稍后重试');
+            // 显示错误信息
+            document.getElementById('noResultsMessage').style.display = 'block';
+        } finally {
+            // 隐藏加载指示器
+            document.getElementById('loadingIndicator').style.display = 'none';
+            // 恢复按钮状态
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+        }
+    });
+
+    // 更新推荐结果显示
+    function updateRecommendations(recommendations) {
+        const container = document.getElementById('resultsContainer');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const noResultsMessage = document.getElementById('noResultsMessage');
+        const resultCount = document.getElementById('resultCount');
+        
+        // 隐藏加载指示器
+        loadingIndicator.style.display = 'none';
+        
+        // 清空现有结果
+        container.innerHTML = '';
+        
+        if (!recommendations || recommendations.length === 0) {
+            noResultsMessage.style.display = 'block';
+            resultCount.textContent = '0 条结果';
+            return;
+        }
+        
+        // 隐藏无结果消息
+        noResultsMessage.style.display = 'none';
+        
+        // 更新结果计数
+        resultCount.textContent = `找到 ${recommendations.length} 条结果`;
+        
+        // 创建网格容器
+        const gridContainer = document.createElement('div');
+        gridContainer.className = 'row g-4'; // 使用 Bootstrap 的 grid 系统和 gap
+        container.appendChild(gridContainer);
+
+        // 创建结果卡片
+        recommendations.forEach((rental, index) => {
+            const card = document.createElement('div');
+            card.className = 'col-12 col-md-6 col-lg-4'; // 响应式布局: 手机1列,平板2列,桌面3列
+            card.innerHTML = `
+                <div class="card h-100 shadow-sm hover-shadow">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">
+                            <i class="fas fa-home text-primary me-2"></i>${rental.title}
+                        </h5>
+                        <div class="mb-3">
+                            <span class="badge bg-primary me-2">
+                                <i class="fas fa-yen-sign me-1"></i>${rental.price}
+                            </span>
+                            <span class="badge bg-success me-2">
+                                <i class="fas fa-ruler-combined me-1"></i>${rental.area}
+                            </span>
+                            <span class="badge bg-info">
+                                <i class="fas fa-map-marker-alt me-1"></i>${rental.district}
+                            </span>
+                        </div>
+                        <p class="card-text text-muted small mb-2">
+                            <i class="fas fa-info-circle me-1"></i>${rental.description || '暂无描述'}
+                        </p>
+                        <div class="mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="text-muted small">
+                                    <i class="fas fa-chart-line me-1"></i>匹配度：${(rental.score * 100).toFixed(1)}%
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                ${rental.reasons.map(reason => `
+                                    <span class="badge bg-light text-dark">
+                                        <i class="fas fa-check text-success me-1"></i>${reason}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            gridContainer.appendChild(card);
+        });
+    }
+
+    // 显示房源详情
+    async function showRentalDetails(rentalId) {
+        try {
+            const response = await fetch(`/api/rental/${rentalId}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || '获取房源详情失败');
+            }
+            
+            const rental = data.rental;
+            
+            // 更新模态框内容
+            const modal = document.getElementById('rentalDetailModal');
+            modal.querySelector('.modal-title').textContent = rental.title;
+            
+            const modalBody = modal.querySelector('.modal-body');
+            modalBody.innerHTML = `
+                <div class="rental-details">
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3">基本信息</h6>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-yen-sign text-primary me-2"></i>
+                                    <div>
+                                        <small class="text-muted d-block">月租金</small>
+                                        <strong>${rental.price}</strong> 元/月
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-ruler-combined text-success me-2"></i>
+                                    <div>
+                                        <small class="text-muted d-block">面积</small>
+                                        <strong>${rental.area}</strong> m²
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-map-marker-alt text-info me-2"></i>
+                                    <div>
+                                        <small class="text-muted d-block">位置</small>
+                                        <strong>${rental.district}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-building text-secondary me-2"></i>
+                                    <div>
+                                        <small class="text-muted d-block">房型</small>
+                                        <strong>${rental.layout}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3">详细描述</h6>
+                        <p class="text-muted mb-0">${rental.description}</p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3">配套设施</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            ${rental.amenities.map(amenity => `
+                                <span class="badge bg-light text-dark">
+                                    <i class="fas fa-check text-success me-1"></i>${amenity}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h6 class="fw-bold mb-3">联系方式</h6>
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-phone text-primary me-2"></i>
+                            <div>
+                                <small class="text-muted d-block">联系电话</small>
+                                <strong>${rental.contact.phone}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // 显示模态框
+            const modalInstance = new bootstrap.Modal(modal);
+            modalInstance.show();
+            
+        } catch (error) {
+            console.error('Error:', error);
+            notyf.error(error.message || '获取房源详情失败，请稍后重试');
+        }
+    }
+});
+</script>
+{% endblock %} 

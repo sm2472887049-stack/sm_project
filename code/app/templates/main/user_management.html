@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}用户管理 - 租房数据分析{% endblock %}
+
+{% block page_title %}用户管理{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .user-role {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.875rem;
+    }
+    .role-admin {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+    .role-user {
+        background-color: #f5f5f5;
+        color: #757575;
+    }
+    .table td {
+        vertical-align: middle;
+    }
+    .action-buttons .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {% if error_message %}
+    <div class="alert alert-danger" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>{{ error_message }}
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-users me-2"></i>用户列表
+                </h5>
+                <div class="d-flex align-items-center">
+                    <form class="me-3" method="get">
+                        <div class="input-group">
+                            <input type="text" class="form-control form-control-sm" name="search" 
+                                   placeholder="搜索用户..." value="{{ search_term }}">
+                            <button class="btn btn-outline-secondary btn-sm" type="submit">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>用户名</th>
+                            <th>邮箱</th>
+                            <th>角色</th>
+                            <th>注册时间</th>
+                            <th>最后登录</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users.items %}
+                        <tr>
+                            <td>{{ user.id }}</td>
+                            <td>{{ user.username }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                <span class="user-role {% if user.role == 'admin' %}role-admin{% else %}role-user{% endif %}">
+                                    {{ '管理员' if user.role == 'admin' else '普通用户' }}
+                                </span>
+                            </td>
+                            <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>{{ user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else '从未登录' }}</td>
+                            <td class="action-buttons">
+                                <button class="btn btn-outline-primary btn-sm me-1" 
+                                        onclick="editUser({{ user.id }})"
+                                        {% if user.id == current_user.id %}disabled{% endif %}>
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm"
+                                        onclick="deleteUser({{ user.id }})"
+                                        {% if user.id == current_user.id %}disabled{% endif %}>
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            {% if users.pages > 1 %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item {% if not users.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('main.user_management', page=users.prev_num) if users.has_prev else '#' }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for page in users.iter_pages() %}
+                        {% if page %}
+                            <li class="page-item {% if page == users.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('main.user_management', page=page) }}">{{ page }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not users.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('main.user_management', page=users.next_num) if users.has_next else '#' }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 编辑用户模态框 -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑用户</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <input type="hidden" id="userId">
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">邮箱</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">角色</label>
+                        <select class="form-select" id="role">
+                            <option value="user">普通用户</option>
+                            <option value="admin">管理员</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveUser()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+function editUser(userId) {
+    // 获取用户信息
+    fetch(`/api/users/${userId}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('userId').value = data.id;
+            document.getElementById('username').value = data.username;
+            document.getElementById('email').value = data.email;
+            document.getElementById('role').value = data.role;
+            
+            // 显示模态框
+            new bootstrap.Modal(document.getElementById('editUserModal')).show();
+        })
+        .catch(error => {
+            alert('获取用户信息失败：' + error);
+        });
+}
+
+function saveUser() {
+    const userId = document.getElementById('userId').value;
+    const data = {
+        username: document.getElementById('username').value,
+        email: document.getElementById('email').value,
+        role: document.getElementById('role').value
+    };
+
+    fetch(`/api/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('保存失败：' + data.error);
+        } else {
+            location.reload();
+        }
+    })
+    .catch(error => {
+        alert('保存失败：' + error);
+    });
+}
+
+function deleteUser(userId) {
+    if (!confirm('确定要删除这个用户吗？此操作不可恢复！')) {
+        return;
+    }
+
+    fetch(`/api/users/${userId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('删除失败：' + data.error);
+        } else {
+            location.reload();
+        }
+    })
+    .catch(error => {
+        alert('删除失败：' + error);
+    });
+}
+</script>
+{% endblock %} 

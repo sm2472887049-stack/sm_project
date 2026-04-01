@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="租房数据分析平台">
+    <meta name="keywords" content="租房分析, 租金, 房源, 租房数据">
+    <meta name="author" content="租房数据分析">
+    <title>{% block title %}{% endblock %}</title>
+
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+
+    <!-- Core JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.1.min.js"></script>
+
+    <style>
+        /* Main styles */
+        :root {
+            --primary-color: #0061f2;
+            --secondary-color: #6900c7;
+            --sidebar-width: 250px;
+            --header-height: 60px;
+        }
+        
+        body {
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #343a40;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Header */
+        .header {
+            height: var(--header-height);
+            background-color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+            z-index: 10;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #343a40;
+        }
+        
+        .breadcrumb {
+            margin-bottom: 0;
+            background-color: transparent;
+            padding: 0;
+        }
+        
+        .breadcrumb-item a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .breadcrumb-item.active {
+            color: #69707a;
+            font-weight: 500;
+        }
+        
+        /* Content sections */
+        .page-header {
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(33, 40, 50, 0.125);
+            padding-bottom: 1rem;
+        }
+        
+        .card {
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+            border: none;
+            border-radius: 0.5rem;
+        }
+        
+        .card-header {
+            background-color: #fff;
+            border-bottom: 1px solid rgba(33, 40, 50, 0.125);
+            padding: 1rem 1.25rem;
+        }
+        
+        .card-header h5 {
+            margin-bottom: 0;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        /* Make page more mobile friendly */
+        @media (max-width: 768px) {
+            .container-fluid {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+            
+            .card {
+                margin-bottom: 1rem;
+            }
+            
+            .header {
+                padding: 0 1rem;
+            }
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: var(--sidebar-width);
+            background: #fff;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+            z-index: 999;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-header {
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+        }
+        
+        .sidebar-header h3 {
+            color: #fff;
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .toggle-btn {
+            background: transparent;
+            border: none;
+            color: #fff;
+            padding: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .toggle-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .toggle-btn i {
+            font-size: 1.2rem;
+        }
+        
+        .sidebar-nav {
+            padding: 1.5rem 0;
+        }
+        
+        .nav-item {
+            padding: 0 1.5rem;
+            margin-bottom: 0.25rem;
+            position: relative;
+        }
+        
+        .nav-link {
+            color: #69707a;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s ease;
+            border-radius: 0.5rem;
+            position: relative;
+        }
+        
+        .nav-link i {
+            margin-right: 0.75rem;
+            font-size: 0.875rem;
+            min-width: 1.25rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            color: var(--primary-color);
+            background-color: rgba(0, 97, 242, 0.05);
+        }
+        
+        .nav-link.active {
+            color: var(--primary-color);
+            background-color: rgba(0, 97, 242, 0.1);
+            font-weight: 600;
+        }
+        
+        .nav-link.active i {
+            color: var(--primary-color);
+            transform: scale(1.2);
+        }
+        
+        .nav-link.active::before {
+            content: '';
+            position: absolute;
+            left: -1.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 60%;
+            width: 4px;
+            background: var(--primary-color);
+            border-radius: 0 4px 4px 0;
+        }
+        
+        /* Nav item badge */
+        .nav-badge {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--primary-color);
+            color: white;
+            border-radius: 10px;
+            padding: 0.15rem 0.5rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link.active .nav-badge {
+            opacity: 1;
+            right: 0.5rem;
+        }
+        
+        /* Nav section title */
+        .nav-section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #a7aeb8;
+            padding: 1.25rem 1.5rem 0.5rem;
+            margin-bottom: 0;
+        }
+        
+        /* Main Content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 1.5rem;
+            min-height: 100vh;
+            transition: all 0.3s ease;
+        }
+        
+        /* User Menu */
+        .user-menu {
+            display: flex;
+            align-items: center;
+        }
+
+        .user-menu button {
+            background: transparent;
+            border: none;
+            font-size: 1.2rem;
+            color: #69707a;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .user-menu button:hover {
+            background-color: rgba(0, 97, 242, 0.05);
+            color: var(--primary-color);
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #e3e6ec;
+            background-color: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1051;
+        }
+
+        .user-avatar:hover {
+            border-color: var(--primary-color);
+            background-color: var(--primary-color);
+            color: #fff;
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 240px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+            margin-top: 0.5rem;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            z-index: 1052;
+        }
+
+        .user-dropdown.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .user-dropdown-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e3e6ec;
+            text-align: center;
+        }
+
+        .user-dropdown-header h6 {
+            margin: 0;
+            color: #363d47;
+            font-weight: 600;
+        }
+
+        .user-dropdown-header p {
+            margin: 0;
+            color: #69707a;
+            font-size: 0.875rem;
+        }
+
+        .user-dropdown-body {
+            padding: 0.5rem 0;
+        }
+
+        .user-dropdown-item {
+            padding: 0.5rem 1rem;
+            display: flex;
+            align-items: center;
+            color: #69707a;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .user-dropdown-item:hover {
+            background: #f8f9fa;
+            color: var(--primary-color);
+        }
+
+        .user-dropdown-item i {
+            width: 1.25rem;
+            margin-right: 0.5rem;
+            text-align: center;
+        }
+
+        .user-dropdown-divider {
+            height: 1px;
+            background: #e3e6ec;
+            margin: 0.5rem 0;
+        }
+        
+        /* Cards */
+        .card {
+            border: none;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+            transition: transform 0.15s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-0.25rem);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            :root {
+                --sidebar-width: 270px;
+            }
+            
+            .sidebar {
+                transform: translateX(-100%);
+                box-shadow: none;
+                z-index: 1030;
+            }
+            
+            .sidebar.collapsed {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.show {
+                transform: translateX(0);
+                box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
+            
+            .main-content.expanded {
+                margin-left: 0;
+            }
+            
+            .header {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 1020;
+                background-color: white;
+                padding: 0.75rem 1rem;
+            }
+            
+            .content-wrapper {
+                margin-top: calc(var(--header-height) + 1rem);
+            }
+        }
+        
+        @media (min-width: 769px) {
+            .sidebar.collapsed {
+                width: 70px;
+            }
+            
+            .sidebar.collapsed .sidebar-header h3 {
+                display: none;
+            }
+            
+            .sidebar.collapsed .nav-link span {
+                display: none;
+            }
+            
+            .sidebar.collapsed .nav-section-title {
+                display: none;
+            }
+            
+            .sidebar.collapsed .nav-item {
+                padding: 0 0.5rem;
+                display: flex;
+                justify-content: center;
+            }
+            
+            .sidebar.collapsed .nav-link {
+                padding: 0.75rem 0.5rem;
+                justify-content: center;
+            }
+            
+            .sidebar.collapsed .nav-link i {
+                margin-right: 0;
+                font-size: 1.1rem;
+            }
+            
+            .sidebar.collapsed .mt-auto {
+                display: none;
+            }
+            
+            .main-content.expanded {
+                margin-left: 70px;
+            }
+        }
+        
+        /* Animation */
+        .sidebar, .main-content, .nav-link, .nav-badge {
+            transition: all 0.3s ease;
+        }
+        
+        /* User dropdown */
+        .user-menu {
+            position: relative;
+        }
+        
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #fff;
+            border-radius: 0.35rem;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+            margin-top: 0.25rem;
+            min-width: 10rem;
+            padding: 0.5rem 0;
+            display: none;
+            z-index: 1000;
+        }
+        
+        .user-dropdown.show {
+            display: block;
+            animation: fadeInDown 0.3s ease;
+        }
+        
+        .dropdown-item {
+            display: block;
+            padding: 0.5rem 1.5rem;
+            color: #69707a;
+            transition: all 0.2s ease;
+        }
+        
+        .dropdown-item:hover {
+            background: rgba(0, 97, 242, 0.05);
+            color: var(--primary-color);
+        }
+        
+        .dropdown-divider {
+            border-top: 1px solid #e0e5ec;
+            margin: 0.5rem 0;
+        }
+        
+        /* Flash messages */
+        .flash-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1050;
+            max-width: 300px;
+        }
+        
+        .flash {
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+            animation: fadeIn 0.3s ease-out;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(5px);
+            border: none;
+        }
+        
+        .flash-success {
+            border-left: 4px solid #28a745;
+            color: #28a745;
+        }
+        
+        .flash-error {
+            border-left: 4px solid #dc3545;
+            color: #dc3545;
+        }
+        
+        .flash-warning {
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+        
+        .flash-info {
+            border-left: 4px solid #17a2b8;
+            color: #17a2b8;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+        
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Add additional CSS to fix the layout */
+        @media (max-width: 576px) {
+            .breadcrumb {
+                display: none;
+            }
+            
+            h1.d-md-none {
+                font-size: 1rem;
+                margin-left: 0.5rem;
+            }
+            
+            .card-body {
+                padding: 1rem;
+            }
+            
+            /* Ensure charts are responsive */
+            .js-plotly-plot .plotly {
+                max-width: 100%;
+            }
+            
+            .plotly-graph-div {
+                max-width: 100%;
+            }
+        }
+
+        /* Fix for select elements in mobile */
+        select.form-select {
+            max-width: 100%;
+        }
+
+        /* Fix for tables in mobile */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Fix scrollbar appearance */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+    </style>
+
+    <!-- 引入外部CSS库，例如Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- 引入Axios用于AJAX请求 -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>租房数据分析</h3>
+            <button class="btn toggle-btn" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        
+        <nav class="nav flex-column">
+            <div class="nav-section">
+                <h6 class="nav-section-title">数据分析</h6>
+                <a class="nav-link" href="{{ url_for('main.index') }}">
+                    <i class="fas fa-home"></i>
+                    <span>首页</span>
+                </a>
+                <a class="nav-link" href="{{ url_for('main.dashboard') }}">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <span>热力图</span>
+                </a>
+                <a class="nav-link" href="{{ url_for('main.price_distribution') }}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>价格分布</span>
+                </a>
+                <a class="nav-link" href="{{ url_for('main.area_price') }}">
+                    <i class="fas fa-chart-line"></i>
+                    <span>面积租金</span>
+                </a>
+                <a class="nav-link" href="{{ url_for('main.district_analysis') }}">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <span>区域分析</span>
+                </a>
+                <a class="nav-link" href="{{ url_for('main.price_prediction') }}">
+                    <i class="fas fa-chart-line"></i>
+                    <span>价格预测</span>
+                </a>
+                <a class="nav-link" href="{{ url_for('main.recommendation') }}">
+                    <i class="fas fa-lightbulb"></i>
+                    <span>智能推荐</span>
+                </a>
+            </div>
+
+            {% if current_user.role == 'admin' %}
+            <div class="nav-section">
+                <h6 class="nav-section-title">数据管理</h6>
+                <a class="nav-link" href="{{ url_for('main.data_management') }}">
+                    <i class="fas fa-database"></i>
+                    <span>数据管理</span>
+                </a>
+                <a class="nav-link" href="{{ url_for('main.user_management') }}">
+                    <i class="fas fa-users"></i>
+                    <span>用户管理</span>
+                </a>
+            </div>
+            {% endif %}
+
+            <div class="nav-section mt-auto">
+                <h6 class="nav-section-title">用户</h6>
+                <a class="nav-link" href="{{ url_for('auth.profile') }}">
+                    <i class="fas fa-user"></i>
+                    <span>个人信息</span>
+                </a>
+                <a class="nav-link" href="{{ url_for('auth.settings') }}">
+                    <i class="fas fa-cog"></i>
+                    <span>设置</span>
+                </a>
+                <a class="nav-link" href="{{ url_for('auth.logout') }}">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>退出</span>
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Navigation -->
+        <nav class="navbar navbar-expand-lg navbar-light bg-white">
+            <div class="container-fluid">
+                <div class="d-flex align-items-center">
+                    <button class="btn" id="menuToggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h4 class="mb-0 ms-3">{% block page_title %}{% endblock %}</h4>
+                </div>
+
+                <div class="user-menu">
+                    <button class="btn" id="userMenuToggle">
+                        <i class="fas fa-user-circle"></i>
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        <div class="user-dropdown-header">
+                            <h6>{{ current_user.username }}</h6>
+                            <p>{{ "管理员" if current_user.is_admin else "普通用户" }}</p>
+                        </div>
+                        <div class="user-dropdown-body">
+                            <a href="{{ url_for('auth.profile') }}" class="user-dropdown-item">
+                                <i class="fas fa-user"></i> 个人信息
+                            </a>
+                            <a href="{{ url_for('auth.settings') }}" class="user-dropdown-item">
+                                <i class="fas fa-cog"></i> 设置
+                            </a>
+                            <a href="{{ url_for('auth.logout') }}" class="user-dropdown-item">
+                                <i class="fas fa-sign-out-alt"></i> 退出
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                <div class="flash flash-{{ category }} alert alert-dismissible fade show" role="alert">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'error' %}exclamation-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
+                        <div>{{ message }}</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const flashMessages = document.querySelectorAll('.flash');
+                    flashMessages.forEach(flash => {
+                        // 添加动画效果
+                        flash.style.animation = 'fadeIn 0.3s ease-out';
+                        
+                        // 点击关闭按钮时添加动画
+                        const closeBtn = flash.querySelector('.btn-close');
+                        if (closeBtn) {
+                            closeBtn.addEventListener('click', () => {
+                                flash.style.animation = 'fadeOut 0.3s ease-out';
+                                setTimeout(() => {
+                                    flash.remove();
+                                }, 300);
+                            });
+                        }
+                    });
+                });
+            </script>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Page Content -->
+        <div class="container-fluid py-4">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='/js/app.js') }}"></script>
+    
+    <!-- User Menu Interaction -->
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const userMenuToggle = document.getElementById('userMenuToggle');
+        const userDropdown = document.getElementById('userDropdown');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const mainContent = document.querySelector('.main-content');
+        
+        // 侧边栏切换
+        sidebarToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (window.innerWidth <= 768) {
+                sidebar.classList.toggle('show');
+            } else {
+                sidebar.classList.toggle('collapsed');
+                mainContent.classList.toggle('expanded');
+            }
+        });
+        
+        // 响应式处理
+        function handleResize() {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('collapsed');
+                mainContent.classList.remove('expanded');
+                if (!sidebar.classList.contains('show')) {
+                    sidebar.classList.add('mobile');
+                }
+            } else {
+                sidebar.classList.remove('mobile');
+                sidebar.classList.remove('show');
+            }
+        }
+        
+        window.addEventListener('resize', handleResize);
+        handleResize();
+        
+        // 点击其他区域关闭移动端侧边栏
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 768 && 
+                !sidebar.contains(e.target) && 
+                !sidebarToggle.contains(e.target)) {
+                sidebar.classList.remove('show');
+            }
+        });
+        
+        // 用户菜单点击处理
+        userMenuToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            userDropdown.classList.toggle('show');
+        });
+        
+        // 点击其他区域关闭用户菜单
+        document.addEventListener('click', (e) => {
+            if (!userDropdown.contains(e.target) && 
+                !userMenuToggle.contains(e.target)) {
+                userDropdown.classList.remove('show');
+            }
+        });
+      });
+    </script>
+    
+    <!-- Global Error Handling and Performance Monitoring -->
+    <script>
+      // 全局错误处理
+      window.onerror = function(msg, url, lineNo, columnNo, error) {
+        console.error('Global error:', {
+          message: msg,
+          url: url,
+          lineNo: lineNo,
+          columnNo: columnNo,
+          error: error
+        });
+        
+        // 可以在这里添加错误上报逻辑
+        return false;
+      };
+      
+      // Promise错误处理
+      window.onunhandledrejection = function(event) {
+        console.error('Unhandled promise rejection:', event.reason);
+      };
+      
+      // 性能监控
+      if ('performance' in window && 'PerformanceObserver' in window) {
+        // 监控页面加载性能
+        const pageLoadObserver = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (entry.entryType === 'navigation') {
+              console.log('Page Load Metrics:', {
+                dnsTime: entry.domainLookupEnd - entry.domainLookupStart,
+                connectTime: entry.connectEnd - entry.connectStart,
+                responseTime: entry.responseEnd - entry.responseStart,
+                domLoadTime: entry.domComplete - entry.domInteractive,
+                totalLoadTime: entry.loadEventEnd - entry.navigationStart
+              });
+            }
+          }
+        });
+        
+        pageLoadObserver.observe({ entryTypes: ['navigation'] });
+        
+        // 监控长任务
+        const longTaskObserver = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (entry.duration > 50) {  // 超过50ms的任务
+              console.warn('Long Task detected:', {
+                duration: entry.duration,
+                startTime: entry.startTime,
+                name: entry.name
+              });
+            }
+          }
+        });
+        
+        longTaskObserver.observe({ entryTypes: ['longtask'] });
+        
+        // 监控资源加载
+        const resourceObserver = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (entry.duration > 1000) {  // 超过1秒的资源加载
+              console.warn('Slow resource load:', {
+                name: entry.name,
+                duration: entry.duration,
+                type: entry.initiatorType
+              });
+            }
+          }
+        });
+        
+        resourceObserver.observe({ entryTypes: ['resource'] });
+      }
+      
+      // 添加页面可见性监控
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          console.log('Page is now hidden');
+          // 可以在这里暂停一些不必要的操作
+        } else {
+          console.log('Page is now visible');
+          // 可以在这里恢复之前暂停的操作
+        }
+      });
+      
+      // 监控网络状态
+      window.addEventListener('online', () => {
+        console.log('Network is online');
+        // 可以在这里恢复需要网络的操作
+      });
+      
+      window.addEventListener('offline', () => {
+        console.log('Network is offline');
+        // 可以在这里暂停需要网络的操作
+      });
+    </script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        let swRegistration = null;
+        
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/static/js/service-worker.js')
+            .then(registration => {
+              swRegistration = registration;
+              console.log('Service Worker registered with scope: ', registration.scope);
+              
+              registration.addEventListener('statechange', e => {
+                console.log('Service Worker state changed:', e.target.state);
+              });
+              
+              // 检查更新
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // 新的Service Worker已安装，可以通知用户刷新页面
+                    if (confirm('新版本可用，是否刷新页面以更新？')) {
+                      window.location.reload();
+                    }
+                  }
+                });
+              });
+            })
+            .catch(error => {
+              console.error('Service Worker registration failed:', error);
+              // 可以在这里添加用户通知
+            });
+            
+          // 处理Service Worker通信
+          navigator.serviceWorker.addEventListener('message', event => {
+            console.log('Received message from Service Worker:', event.data);
+          });
+        });
+        
+        // 处理Service Worker错误
+        window.addEventListener('unhandledrejection', event => {
+          if (event.reason && event.reason.name === 'ServiceWorkerError') {
+            console.error('Service Worker error:', event.reason);
+          }
+        });
+      }
+    </script>
+
+    <!-- Page specific scripts -->
+    {% block scripts %}{% endblock %}
+
+</body>
+
+</html>

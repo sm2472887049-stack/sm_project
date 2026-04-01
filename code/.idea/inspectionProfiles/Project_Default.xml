@@ -1,0 +1,22 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyInterpreterInspection" enabled="true" level="ERROR" enabled_by_default="true" />
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="visualize.visualization.draw_average_price" />
+          <option value="visualize.visualization.draw_area_distribution" />
+          <option value="visualize.visualization.draw_type_distribution" />
+          <option value="visualize.visualization.draw_decoration_distribution" />
+          <option value="visualize.visualization.draw_floor_distribution" />
+          <option value="visualize.visualization.draw_year_distribution" />
+          <option value="visualize.visualization.draw_orientation_distribution" />
+          <option value="visualize.visualization.draw_total_price_distribution" />
+          <option value="main1.recommended_movies" />
+          <option value="main1.*" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

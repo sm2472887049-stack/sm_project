@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+{% block title %}区域分析 - 租房数据分析{% endblock %}
+
+{% block page_title %}区域分析{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">区域租金分析</h5>
+                    <div class="d-flex align-items-center">
+                        <label class="me-2">选择城市：</label>
+                        <select class="form-select" id="citySelect" style="width: 200px;">
+                            {% for city in cities %}
+                            <option value="{{ city }}" {% if city == selected_city %}selected{% endif %}>
+                                {{ city }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if not districts %}
+                        <div class="alert alert-warning">
+                            没有找到相关的区域数据。
+                        </div>
+                    {% else %}
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body">
+                                        <h5 class="card-title">总房源数</h5>
+                                        <h2>{{ city_stats.total_count }}</h2>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body">
+                                        <h5 class="card-title">平均租金</h5>
+                                        <h2>{{ city_stats.avg_price }}元/月</h2>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body">
+                                        <h5 class="card-title">区域数量</h5>
+                                        <h2>{{ city_stats.districts_count }}</h2>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">区域房源分布</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="districtDistributionChart" style="height: 400px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">区域租金对比</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="districtPriceChart" style="height: 400px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">区域详细数据</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>区域</th>
+                                                <th>房源数量</th>
+                                                <th>平均租金</th>
+                                                <th>最低租金</th>
+                                                <th>最高租金</th>
+                                                <th>平均面积</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for district in districts %}
+                                            <tr>
+                                                <td>{{ district.district }}</td>
+                                                <td>{{ district.count }}</td>
+                                                <td>{{ district.avg_price }}元/月</td>
+                                                <td>{{ district.min_price }}元/月</td>
+                                                <td>{{ district.max_price }}元/月</td>
+                                                <td>{{ district.avg_area }}㎡</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    // 状态管理
+    const state = {
+        charts: {
+            distribution: null,
+            price: null
+        },
+        data: null,
+        isLoading: false
+    };
+
+    // 工具函数
+    const utils = {
+        formatNumber: new Intl.NumberFormat('zh-CN').format,
+        
+        showError: function(message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                <strong>错误：</strong> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.card-body').prepend(alertDiv);
+        },
+
+        debounce: function(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+    };
+
+    // 图表配置
+    const chartConfig = {
+        distribution: {
+            layout: {
+                title: '各区域房源数量分布',
+                xaxis: {
+                    title: '区域',
+                    tickangle: -45,
+                    automargin: true
+                },
+                yaxis: {
+                    title: '房源数量',
+                    automargin: true
+                },
+                margin: { b: 100, l: 80, r: 20, t: 50 },
+                showlegend: true,
+                hovermode: 'closest',
+                plot_bgcolor: '#fff',
+                paper_bgcolor: '#fff'
+            },
+            config: {
+                responsive: true,
+                displayModeBar: true,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                displaylogo: false
+            }
+        },
+        price: {
+            layout: {
+                title: '各区域租金价格对比',
+                xaxis: {
+                    title: '区域',
+                    tickangle: -45,
+                    automargin: true
+                },
+                yaxis: {
+                    title: '租金（元/月）',
+                    automargin: true
+                },
+                margin: { b: 100, l: 80, r: 20, t: 50 },
+                showlegend: true,
+                hovermode: 'closest',
+                plot_bgcolor: '#fff',
+                paper_bgcolor: '#fff'
+            },
+            config: {
+                responsive: true,
+                displayModeBar: true,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                displaylogo: false
+            }
+        }
+    };
+
+    // 初始化函数
+    function init() {
+        const citySelect = document.getElementById('citySelect');
+        if (citySelect) {
+            citySelect.addEventListener('change', handleCityChange);
+        }
+
+        {% if districts %}
+        try {
+            state.data = {{ districts|tojson }};
+            if (!validateData(state.data)) {
+                throw new Error('数据格式无效');
+            }
+            renderCharts();
+            setupResizeHandler();
+        } catch (error) {
+            console.error('初始化失败:', error);
+            utils.showError('图表初始化失败：' + error.message);
+        }
+        {% endif %}
+    }
+
+    // 数据验证
+    function validateData(data) {
+        if (!Array.isArray(data) || data.length === 0) return false;
+        return data.every(item => (
+            item.district && 
+            typeof item.count === 'number' &&
+            typeof item.avg_price === 'number' &&
+            typeof item.min_price === 'number' &&
+            typeof item.max_price === 'number'
+        ));
+    }
+
+    // 处理城市选择
+    function handleCityChange(event) {
+        const newCity = event.target.value;
+        window.location.href = '{{ url_for("main.district_analysis") }}?city=' + encodeURIComponent(newCity);
+    }
+
+    // 渲染图表
+    function renderCharts() {
+        const distributionData = prepareDistributionData();
+        const priceData = preparePriceData();
+
+        Promise.all([
+            Plotly.newPlot('districtDistributionChart', distributionData.traces, chartConfig.distribution.layout, chartConfig.distribution.config),
+            Plotly.newPlot('districtPriceChart', priceData.traces, chartConfig.price.layout, chartConfig.price.config)
+        ]).then(([distChart, priceChart]) => {
+            state.charts.distribution = distChart;
+            state.charts.price = priceChart;
+        }).catch(error => {
+            console.error('图表渲染失败:', error);
+            utils.showError('图表渲染失败，请刷新页面重试');
+        });
+    }
+
+    // 准备分布图数据
+    function prepareDistributionData() {
+        return {
+            traces: [{
+                x: state.data.map(d => d.district),
+                y: state.data.map(d => d.count),
+                type: 'bar',
+                name: '房源数量',
+                marker: {
+                    color: 'rgb(31, 119, 180)',
+                    opacity: 0.8
+                },
+                hovertemplate: 
+                    '<b>%{x}</b><br>' +
+                    '房源数量: %{y}<br>' +
+                    '<extra></extra>'
+            }]
+        };
+    }
+
+    // 准备价格图数据
+    function preparePriceData() {
+        return {
+            traces: [{
+                x: state.data.map(d => d.district),
+                y: state.data.map(d => d.avg_price),
+                type: 'bar',
+                name: '平均租金',
+                marker: {
+                    color: 'rgb(255, 127, 14)',
+                    opacity: 0.8
+                },
+                error_y: {
+                    type: 'data',
+                    array: state.data.map(d => d.max_price - d.avg_price),
+                    arrayminus: state.data.map(d => d.avg_price - d.min_price),
+                    visible: true,
+                    color: 'rgb(255, 127, 14)',
+                    thickness: 1.5,
+                    width: 3
+                },
+                hovertemplate: 
+                    '<b>%{x}</b><br>' +
+                    '平均租金: ¥%{y}<br>' +
+                    '最高租金: ¥%{y+error_y.array}<br>' +
+                    '最低租金: ¥%{y-error_y.arrayminus}<br>' +
+                    '<extra></extra>'
+            }]
+        };
+    }
+
+    // 设置窗口调整处理
+    function setupResizeHandler() {
+        const handleResize = utils.debounce(() => {
+            if (state.charts.distribution && state.charts.price) {
+                Promise.all([
+                    Plotly.relayout('districtDistributionChart', {
+                        'xaxis.automargin': true,
+                        'yaxis.automargin': true
+                    }),
+                    Plotly.relayout('districtPriceChart', {
+                        'xaxis.automargin': true,
+                        'yaxis.automargin': true
+                    })
+                ]).catch(error => {
+                    console.error('图表重绘失败:', error);
+                });
+            }
+        }, 250);
+
+        window.addEventListener('resize', handleResize);
+    }
+
+    // 启动应用
+    document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}
+
+<style>
+.card {
+    border: none;
+    border-radius: 8px;
+}
+.card-title {
+    color: #2c3e50;
+    font-weight: 600;
+}
+.alert-info {
+    background-color: #f8f9fa;
+    border-left: 4px solid #17a2b8;
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+    color: #495057;
+}
+.table {
+    margin-top: 1rem;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+    transition: all 0.2s ease;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 2px -2px rgba(0,0,0,0.1);
+}
+.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+.sortable:hover {
+    background-color: #e9ecef;
+}
+.sort-indicator {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 5px;
+}
+.sort-indicator i {
+    font-size: 0.9rem;
+    margin-right: 2px;
+    transition: transform 0.2s ease;
+    /* 强制图标字体加载 */
+    font-display: block;
+    will-change: transform;
+}
+.sort-text {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    font-weight: normal;
+    transition: color 0.2s ease;
+}
+.sort-active {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+.sort-active.sort-asc {
+    border-bottom: 2px solid #28a745;
+}
+.sort-active.sort-desc {
+    border-bottom: 2px solid #dc3545;
+}
+.sort-active .sort-indicator i {
+    color: #007bff;
+    font-weight: bold;
+    transform: scale(1.2);
+}
+.sort-active.sort-asc .sort-text {
+    color: #28a745;
+    font-weight: bold;
+}
+.sort-active.sort-desc .sort-text {
+    color: #dc3545;
+    font-weight: bold;
+}
+.table td {
+    vertical-align: middle;
+}
+.table td strong {
+    color: #2c3e50;
+}
+.row-hover {
+    background-color: rgba(0, 123, 255, 0.05);
+    transition: background-color 0.15s ease;
+}
+.table tbody tr:nth-child(odd) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+.table tbody tr {
+    transition: background-color 0.15s ease;
+}
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+    .table {
+        font-size: 14px;
+    }
+    h2 {
+        font-size: 1.5rem;
+    }
+    h3 {
+        font-size: 1.25rem;
+    }
+    .sort-text {
+        display: none; /* 在移动设备上隐藏文字，只显示图标 */
+    }
+    .sortable:before {
+        content: "";
+        display: block;
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        right: 0;
+        height: 2px;
+    }
+    .sort-active.sort-asc:before {
+        background-color: #28a745;
+    }
+    .sort-active.sort-desc:before {
+        background-color: #dc3545;
+    }
+}
+</style>

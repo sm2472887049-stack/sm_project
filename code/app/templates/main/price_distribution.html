@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+
+{% block title %}租房数据分析 - 价格分布{% endblock %}
+
+{% block page_title %}价格分布分析{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- 统计卡片 -->
+    <div class="col-12 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title mb-4">租金统计概览</h5>
+                <div id="stats-container" class="row">
+                    <div class="col-xl-3 col-md-6 mb-3">
+                        <div class="stats-item border-left-primary">
+                            <h6 class="text-primary">总房源数</h6>
+                            <p class="total-count h5 mb-0">--</p>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6 mb-3">
+                        <div class="stats-item border-left-success">
+                            <h6 class="text-success">平均租金</h6>
+                            <p class="avg-price h5 mb-0">--</p>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6 mb-3">
+                        <div class="stats-item border-left-info">
+                            <h6 class="text-info">最低租金</h6>
+                            <p class="min-price h5 mb-0">--</p>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6 mb-3">
+                        <div class="stats-item border-left-warning">
+                            <h6 class="text-warning">最高租金</h6>
+                            <p class="max-price h5 mb-0">--</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 柱状图 -->
+    <div class="col-lg-8 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-4">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    租金分布直方图
+                </h5>
+                <div class="chart-wrapper position-relative">
+                    <div id="histogram-loading" class="loading-overlay">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2">正在加载数据...</p>
+                    </div>
+                    <div id="histogram" class="chart-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 饼图 -->
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-4">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    租金区间占比
+                </h5>
+                <div class="chart-wrapper position-relative">
+                    <div id="pie-loading" class="loading-overlay">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2">正在加载数据...</p>
+                    </div>
+                    <div id="pie-chart" class="chart-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 格式化金额
+    function formatPrice(price) {
+        return '¥' + price.toLocaleString('zh-CN', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
+    }
+
+    // 更新统计信息
+    function updateStats(stats) {
+        if (!stats) return;
+        document.querySelector('.total-count').textContent = stats.total_count.toLocaleString() + ' 套';
+        document.querySelector('.avg-price').textContent = formatPrice(stats.avg_price);
+        document.querySelector('.min-price').textContent = formatPrice(stats.min_price);
+        document.querySelector('.max-price').textContent = formatPrice(stats.max_price);
+    }
+
+    // 显示错误信息
+    function showError(containerId, message) {
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>${message}
+                </div>
+            `;
+        }
+    }
+
+    // 隐藏加载动画
+    function hideLoading(loadingId) {
+        const loadingElement = document.getElementById(loadingId);
+        if (loadingElement) {
+            loadingElement.style.display = 'none';
+        }
+    }
+
+    // 显示加载动画
+    function showLoading(loadingId) {
+        const loadingElement = document.getElementById(loadingId);
+        if (loadingElement) {
+            loadingElement.style.display = 'flex';
+        }
+    }
+
+    // 加载数据
+    async function loadPriceDistribution() {
+        // 显示所有加载动画
+        showLoading('histogram-loading');
+        showLoading('pie-loading');
+
+        try {
+            const response = await fetch('/api/price_distribution');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            // 更新统计信息
+            updateStats(data.stats);
+
+            // 绘制柱状图
+            await Plotly.newPlot('histogram', data.histogram.data, {
+                ...data.histogram.layout,
+                height: 450,
+                margin: { t: 20, r: 30, b: 80, l: 70 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: {
+                    family: 'Inter, sans-serif',
+                    size: 12
+                },
+                xaxis: {
+                    ...data.histogram.layout.xaxis,
+                    title: {
+                        text: '租金区间 (元/月)',
+                        font: {
+                            size: 14,
+                            color: '#495057'
+                        }
+                    },
+                    tickangle: -45,
+                    tickfont: {
+                        size: 11
+                    },
+                    gridcolor: '#f0f0f0'
+                },
+                yaxis: {
+                    ...data.histogram.layout.yaxis,
+                    title: {
+                        text: '房源数量 (套)',
+                        font: {
+                            size: 14,
+                            color: '#495057'
+                        }
+                    },
+                    tickfont: {
+                        size: 11
+                    },
+                    gridcolor: '#f0f0f0'
+                },
+                bargap: 0.1,
+                showlegend: false
+            }).then(() => {
+                hideLoading('histogram-loading');
+            });
+
+            // 绘制饼图
+            await Plotly.newPlot('pie-chart', data.pie.data, {
+                ...data.pie.layout,
+                height: 450,
+                margin: { t: 20, r: 30, b: 60, l: 30 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: {
+                    family: 'Inter, sans-serif',
+                    size: 12
+                },
+                legend: {
+                    orientation: 'h',
+                    y: -0.15,
+                    x: 0.5,
+                    xanchor: 'center',
+                    font: {
+                        size: 11
+                    },
+                    traceorder: 'normal'
+                },
+                showlegend: true
+            }).then(() => {
+                hideLoading('pie-loading');
+            });
+
+        } catch (error) {
+            console.error('Failed to load price distribution:', error);
+            showError('histogram', '数据加载失败，请刷新页面重试');
+            showError('pie-chart', '数据加载失败，请刷新页面重试');
+            hideLoading('histogram-loading');
+            hideLoading('pie-loading');
+        }
+    }
+
+    // 初始加载
+    loadPriceDistribution();
+
+    // 响应窗口大小变化
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            Plotly.Plots.resize('histogram');
+            Plotly.Plots.resize('pie-chart');
+        }, 250);
+    });
+});
+</script>
+
+<style>
+.card {
+    border: none;
+    border-radius: 8px;
+    height: 100%;
+    background-color: #fff;
+}
+
+.chart-wrapper {
+    position: relative;
+    width: 100%;
+    height: 450px;
+}
+
+.chart-container {
+    width: 100%;
+    height: 100%;
+}
+
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.loading-overlay .spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+.loading-overlay p {
+    margin-top: 1rem;
+    color: #495057;
+}
+
+.stats-item {
+    padding: 1.25rem;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.stats-item:hover {
+    transform: translateY(-3px);
+}
+
+.stats-item h6 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.stats-item p {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0;
+    color: #2c3e50;
+}
+
+.border-left-primary {
+    border-left: 4px solid var(--primary-color) !important;
+}
+
+.border-left-success {
+    border-left: 4px solid #1cc88a !important;
+}
+
+.border-left-info {
+    border-left: 4px solid #36b9cc !important;
+}
+
+.border-left-warning {
+    border-left: 4px solid #f6c23e !important;
+}
+
+.alert {
+    margin: 1rem;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.alert-danger {
+    background-color: #fff3f3;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+@media (max-width: 768px) {
+    .stats-item {
+        padding: 1rem;
+    }
+    
+    .chart-wrapper {
+        height: 350px;
+    }
+    
+    .stats-item p {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .chart-wrapper {
+        height: 300px;
+    }
+}
+</style>
+{% endblock %} 

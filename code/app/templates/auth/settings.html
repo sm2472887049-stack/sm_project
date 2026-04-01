@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}租房数据分析 - 账号设置{% endblock %}
+
+{% block page_title %}账号设置{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-user-edit me-2"></i>修改个人信息
+                    </h5>
+                    <form method="POST" action="{{ url_for('auth.update_profile') }}">
+                        <div class="mb-3">
+                            <label class="form-label">用户名</label>
+                            <input type="text" class="form-control" value="{{ current_user.username }}" disabled>
+                            <small class="text-muted">用户名创建后不可修改</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">邮箱地址</label>
+                            <input type="email" class="form-control" name="email" value="{{ current_user.email }}">
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>保存修改
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-lock me-2"></i>修改密码
+                    </h5>
+                    <form method="POST" action="{{ url_for('auth.change_password') }}">
+                        <div class="mb-3">
+                            <label class="form-label">当前密码</label>
+                            <input type="password" class="form-control" name="current_password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">新密码</label>
+                            <input type="password" class="form-control" name="new_password" required>
+                            <small class="text-muted">密码长度至少6位</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">确认新密码</label>
+                            <input type="password" class="form-control" name="confirm_password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-key me-2"></i>修改密码
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border: none;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+}
+
+.card-title {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.form-control:disabled {
+    background-color: #f8f9fa;
+    cursor: not-allowed;
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(0, 97, 242, 0.1);
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+    background: var(--secondary-color);
+    transform: translateY(-1px);
+}
+</style>
+{% endblock %}

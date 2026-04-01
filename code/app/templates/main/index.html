@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}租房数据分析 - 主页{% endblock %}
+
+{% block page_title %}数据概览{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .stats-card {
+        transition: transform 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .stats-card:hover {
+        transform: translateY(-3px);
+    }
+    .stats-icon {
+        font-size: 2rem;
+        opacity: 0.2;
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border: none;
+        margin-bottom: 1rem;
+    }
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        padding: 1rem;
+    }
+    .table th {
+        background-color: #f8f9fa;
+        font-weight: 500;
+    }
+    .city-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        background-color: #e3f2fd;
+        color: #1976d2;
+        border-radius: 12px;
+        font-size: 0.875rem;
+    }
+    .stats-value {
+        font-size: 2rem;
+        font-weight: 600;
+        color: #2196f3;
+        margin: 0;
+    }
+    .stats-label {
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+    }
+    .table-hover tbody tr:hover {
+        background-color: rgba(0,0,0,0.02);
+    }
+    .table td {
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 错误消息显示 -->
+    {% if error_message %}
+    <div class="alert alert-danger" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>{{ error_message }}
+    </div>
+    {% endif %}
+
+    <!-- 总体统计信息卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-home stats-icon"></i>
+                    <div class="stats-label">总房源</div>
+                    <div class="stats-value">{{ stats.total_listings }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-yen-sign stats-icon"></i>
+                    <div class="stats-label">平均租金</div>
+                    <div class="stats-value">{{ stats.avg_price }}<small>元</small></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-vector-square stats-icon"></i>
+                    <div class="stats-label">平均面积</div>
+                    <div class="stats-value">{{ stats.avg_area }}<small>㎡</small></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-map-marker-alt stats-icon"></i>
+                    <div class="stats-label">覆盖区域</div>
+                    <div class="stats-value">{{ stats.districts }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-city stats-icon"></i>
+                    <div class="stats-label">覆盖城市</div>
+                    <div class="stats-value">{{ stats.cities }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 城市统计信息 -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>城市房源分布
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>城市</th>
+                                    <th>房源数量</th>
+                                    <th>平均租金</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for city in city_data %}
+                                <tr>
+                                    <td><span class="city-tag">{{ city.city }}</span></td>
+                                    <td>{{ city.count }}套</td>
+                                    <td>{{ city.avg_price }}元</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最新房源列表 -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-list-alt me-2"></i>最新房源
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>城市</th>
+                                    <th>标题</th>
+                                    <th>价格</th>
+                                    <th>面积</th>
+                                    <th>位置</th>
+                                    <th>数据更新时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for rental in latest_listings %}
+                                <tr>
+                                    <td><span class="city-tag">{{ rental.city }}</span></td>
+                                    <td>
+                                        <a href="{{ rental.url }}" target="_blank" class="text-decoration-none text-dark" title="{{ rental.title }}">
+                                            {{ rental.title[:30] + '...' if rental.title|length > 30 else rental.title }}
+                                        </a>
+                                    </td>
+                                    <td>{{ rental.price }}</td>
+                                    <td>{{ rental.area }}</td>
+                                    <td>{{ rental.location }}</td>
+                                    <td>{{ rental.created_at }}</td>
+                                </tr>
+                                {% endfor %}
+                                {% if not latest_listings %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-5 text-muted">
+                                        <i class="fas fa-inbox fa-2x mb-3"></i>
+                                        <p>暂无最新房源数据</p>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

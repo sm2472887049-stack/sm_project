@@ -1,0 +1,170 @@
+{% extends "auth/auth_base.html" %}
+
+{% block title %}登录{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-logo">
+        <div class="logo-icon">
+            <i class="fas fa-home fa-3x"></i>
+        </div>
+        <h1>租房数据分析平台</h1>
+        <p class="text-muted">欢迎回来，请登录您的账号</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('auth.login') }}" class="auth-form">
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group mb-4">
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="fas fa-user"></i>
+                </span>
+                {{ form.username(class="form-control", placeholder="请输入用户名") }}
+            </div>
+            {% for error in form.username.errors %}
+            <div class="invalid-feedback d-block">
+                <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="form-group mb-4">
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="fas fa-lock"></i>
+                </span>
+                {{ form.password(class="form-control", placeholder="请输入密码") }}
+            </div>
+            {% for error in form.password.errors %}
+            <div class="invalid-feedback d-block">
+                <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="d-grid gap-2">
+            {{ form.submit(class="btn btn-primary btn-lg") }}
+        </div>
+    </form>
+
+    <div class="auth-footer text-center mt-4">
+        <p class="mb-0">还没有账号？<a href="{{ url_for('auth.register') }}" class="text-primary">立即注册</a></p>
+    </div>
+</div>
+
+<style>
+.auth-container {
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.15);
+    padding: 2.5rem;
+}
+
+.auth-logo {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.auth-logo .logo-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 97, 242, 0.1);
+    border-radius: 50%;
+}
+
+.auth-logo h1 {
+    font-size: 1.75rem;
+    color: var(--primary-color);
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+}
+
+.auth-logo p {
+    font-size: 1rem;
+    color: #69707a;
+}
+
+.form-group {
+    position: relative;
+}
+
+.input-group {
+    border-radius: 0.5rem;
+    overflow: hidden;
+    border: 1px solid #e3e6ec;
+    transition: all 0.2s ease;
+}
+
+.input-group:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(0, 97, 242, 0.1);
+}
+
+.input-group-text {
+    background-color: #f8f9fa;
+    border: none;
+    color: #69707a;
+    padding: 0.75rem 1rem;
+}
+
+.form-control {
+    border: none;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+}
+
+.form-control:focus {
+    box-shadow: none;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    border: none;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+    background: #0058d9;
+    transform: translateY(-1px);
+}
+
+.invalid-feedback {
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    color: var(--error-color);
+}
+
+.auth-footer a {
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.auth-footer a:hover {
+    color: #0058d9 !important;
+}
+
+@media (max-width: 576px) {
+    .auth-container {
+        padding: 2rem;
+    }
+    
+    .auth-logo h1 {
+        font-size: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block page_title %}登录{% endblock %} 

@@ -1,0 +1,5 @@
+"id","username","email","password_hash","created_at","last_login","is_active"
+"1","admin","admin@example.com","pbkdf2:sha256:1000000$Rv29bL4vCieEO8Ba$8949a0a61bc1576587a6e26f52af4c1a31fd6ad92028ce02012fdbf1f6d200e1","27/2/2025 14:20:31","27/2/2025 14:21:05","1"
+"2","111","sm2472877049@163.com","pbkdf2:sha256:1000000$U04ZTIJK90M9Eacb$2cca1a4c6846409fb99a605ed9d7fe0fa6c9e55cdad60adf41874f307b82a0d5","27/2/2025 14:32:32","2/4/2025 12:54:08","1"
+"3","qwe","123@qq.com","pbkdf2:sha256:600000$t0Vdp3X7XpvUKtrj$842dbcb11e1cab77f7be9589e7211c262b860da0eb24d37c1ab61c4c118ee2eb","30/3/2025 03:51:47","30/3/2025 05:05:34","1"
+"4","123","123@11.com","pbkdf2:sha256:600000$rQDLoi1DABRWFS1b$f94d2228f3c2c3ef0699488d0486d0b47c895d658bade8ffc803f68becb384bb","30/3/2025 09:45:43","30/3/2025 09:45:50","1"

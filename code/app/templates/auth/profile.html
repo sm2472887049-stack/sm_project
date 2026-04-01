@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}租房数据分析 - 个人信息{% endblock %}
+
+{% block page_title %}个人信息{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <h3>{{ current_user.username }}</h3>
+                        <p class="text-muted">{{ current_user.email }}</p>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">用户名</label>
+                                <p class="form-control-static">{{ current_user.username }}</p>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">邮箱</label>
+                                <p class="form-control-static">{{ current_user.email }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">注册时间</label>
+                                <p class="form-control-static">{{ current_user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">最后登录</label>
+                                <p class="form-control-static">
+                                    {% if current_user.last_login %}
+                                        {{ current_user.last_login.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    {% else %}
+                                        暂无记录
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <a href="{{ url_for('auth.settings') }}" class="btn btn-primary">
+                            <i class="fas fa-cog me-2"></i>修改设置
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-control-static {
+    padding: 0.5rem 0.75rem;
+    background-color: #f8f9fa;
+    border: 1px solid #e3e6ec;
+    border-radius: 0.5rem;
+    color: #2c3e50;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+}
+</style>
+{% endblock %} 
